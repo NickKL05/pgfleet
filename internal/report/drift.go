@@ -9,11 +9,21 @@ import (
 )
 
 // ObjectDiff is one object-level difference for drift output (R5.6). Class is
-// one of "missing", "extra", or "modified".
+// one of "missing", "extra", or "modified". For a modified column or
+// constraint, Changes explains which fields differ.
 type ObjectDiff struct {
-	Type  string `json:"type"`
-	Name  string `json:"name"`
-	Class string `json:"class"`
+	Type    string        `json:"type"`
+	Name    string        `json:"name"`
+	Class   string        `json:"class"`
+	Changes []FieldChange `json:"changes,omitempty"`
+}
+
+// FieldChange is one field-level difference within a modified object, e.g. a
+// column whose type changed from text to character varying(100).
+type FieldChange struct {
+	Field string `json:"field"`
+	From  string `json:"from"`
+	To    string `json:"to"`
 }
 
 // TenantDrift is the drift outcome for one tenant.
@@ -83,4 +93,34 @@ func RenderDriftHuman(w io.Writer, r *DriftReport) error {
 	fmt.Fprintf(w, "\n%d of %d tenants drifted from %s.\n",
 		r.Summary["drifted"], len(r.Tenants), r.Reference)
 	return nil
+}
+
+// RenderDiffHuman writes the detailed per-object differences for each tenant,
+// including the field-level changes of modified columns and constraints (R5.6).
+// It is the renderer for drift diff, where the user asked about specific
+// tenants and wants the full explanation rather than a summary.
+func RenderDiffHuman(w io.Writer, r *DriftReport) error {
+	for _, t := range r.Tenants {
+		if len(t.Differences) == 0 {
+			fmt.Fprintf(w, "%s: no differences from %s\n", t.Schema, r.Reference)
+			continue
+		}
+		fmt.Fprintf(w, "%s: %d difference(s) from %s\n", t.Schema, len(t.Differences), r.Reference)
+		for _, d := range t.Differences {
+			fmt.Fprintf(w, "  %-8s %s %s\n", d.Class, d.Type, d.Name)
+			for _, ch := range d.Changes {
+				fmt.Fprintf(w, "      %s: %s -> %s\n", ch.Field, quoteEmpty(ch.From), quoteEmpty(ch.To))
+			}
+		}
+	}
+	return nil
+}
+
+// quoteEmpty renders an empty field value as "(none)" so a default going from
+// unset to a value reads clearly.
+func quoteEmpty(s string) string {
+	if s == "" {
+		return "(none)"
+	}
+	return s
 }

@@ -30,8 +30,8 @@ func newDriftCmd(gf *globalFlags) *cobra.Command {
 
 	cmd.AddCommand(
 		newDriftVerifyCmd(gf, df),
+		newDriftDiffCmd(gf, df),
 		newDriftSnapshotCmd(gf, df),
-		driftStub("diff", "Show object-level differences for a tenant (planned M4)"),
 		driftStub("repair", "Generate corrective DDL for a drifted tenant (planned M5)"),
 	)
 	return cmd
@@ -76,6 +76,61 @@ func newDriftVerifyCmd(gf *globalFlags, df *driftFlags) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newDriftDiffCmd(gf *globalFlags, df *driftFlags) *cobra.Command {
+	var all bool
+	cmd := &cobra.Command{
+		Use:   "diff <tenant>|--all",
+		Short: "Show object-level and field-level differences for a tenant",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if all == (len(args) == 1) {
+				return usageErr(fmt.Errorf("provide exactly one of <tenant> or --all"))
+			}
+			ctx := cmd.Context()
+			a, err := loadApp(gf)
+			if err != nil {
+				return err
+			}
+			if err := a.connect(ctx); err != nil {
+				return err
+			}
+			defer a.close()
+
+			var tenants []string
+			if all {
+				if tenants, err = a.tenants(ctx); err != nil {
+					return err
+				}
+			} else {
+				tenants = []string{args[0]}
+			}
+
+			spec, err := referenceSpec(a.cfg)
+			if err != nil {
+				return err
+			}
+			rep, err := drift.Diff(ctx, a.pool, tenants, spec, driftOptions(a.cfg, df))
+			if err != nil {
+				return connErr(err)
+			}
+
+			if gf.json {
+				if err := report.RenderDriftJSON(os.Stdout, rep); err != nil {
+					return err
+				}
+			} else if err := report.RenderDiffHuman(os.Stdout, rep); err != nil {
+				return err
+			}
+			if rep.Drifted() {
+				return failureCode()
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&all, "all", false, "diff every discovered tenant")
+	return cmd
 }
 
 func newDriftSnapshotCmd(gf *globalFlags, df *driftFlags) *cobra.Command {
@@ -134,6 +189,18 @@ func resolveReference(ctx context.Context, a *app, opts drift.Options) (*drift.R
 		return ref, nil
 	default:
 		return nil, usageErr(fmt.Errorf("unknown drift.reference.mode %q", a.cfg.Drift.Reference.Mode))
+	}
+}
+
+// referenceSpec maps the config reference block to a drift.ReferenceSpec.
+func referenceSpec(cfg *config.Config) (drift.ReferenceSpec, error) {
+	switch cfg.Drift.Reference.Mode {
+	case config.ReferenceSchema:
+		return drift.ReferenceSpec{Mode: drift.ModeSchema, Schema: cfg.Drift.Reference.Schema}, nil
+	case config.ReferenceSnapshot:
+		return drift.ReferenceSpec{Mode: drift.ModeSnapshot, SnapshotPath: cfg.Drift.Reference.Snapshot}, nil
+	default:
+		return drift.ReferenceSpec{}, usageErr(fmt.Errorf("unknown drift.reference.mode %q", cfg.Drift.Reference.Mode))
 	}
 }
 

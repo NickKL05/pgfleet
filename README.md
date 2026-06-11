@@ -24,7 +24,7 @@ today:
 | Migrations | `migrate status` | done |
 | Drift | `drift verify` | done |
 | Drift | `drift snapshot` | done |
-| Drift | `drift diff` | planned (M4) |
+| Drift | `drift diff` | done |
 | Drift | `drift repair` | planned (M5) |
 
 See [docs/architecture.md](docs/architecture.md) for the design and

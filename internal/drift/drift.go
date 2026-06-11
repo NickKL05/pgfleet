@@ -42,15 +42,24 @@ func ReferenceFromSchema(ctx context.Context, db catalog.Querier, schema string,
 	return &Reference{Label: "schema " + schema, Fingerprint: fp}, nil
 }
 
-// Fingerprints reads the catalog for the given schemas in one set-based pass,
-// assembles a model per schema, and computes their fingerprints concurrently
-// (parallel hashing keeps verify under the 5s target at 250 schemas, R5.5).
-func Fingerprints(ctx context.Context, db catalog.Querier, schemas []string, opts Options) (map[string]fingerprint.Fingerprint, error) {
+// Models reads the catalog for the given schemas in one set-based pass and
+// assembles a normalized model per schema.
+func Models(ctx context.Context, db catalog.Querier, schemas []string) (map[string]*model.Schema, error) {
 	rows, err := catalog.Read(ctx, db, schemas)
 	if err != nil {
 		return nil, err
 	}
-	models := catalog.Assemble(rows, schemas)
+	return catalog.Assemble(rows, schemas), nil
+}
+
+// Fingerprints reads the catalog for the given schemas in one set-based pass,
+// assembles a model per schema, and computes their fingerprints concurrently
+// (parallel hashing keeps verify under the 5s target at 250 schemas, R5.5).
+func Fingerprints(ctx context.Context, db catalog.Querier, schemas []string, opts Options) (map[string]fingerprint.Fingerprint, error) {
+	models, err := Models(ctx, db, schemas)
+	if err != nil {
+		return nil, err
+	}
 
 	out := make(map[string]fingerprint.Fingerprint, len(schemas))
 	results := make([]fingerprint.Fingerprint, len(schemas))

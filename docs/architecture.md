@@ -69,7 +69,7 @@ internal/
 
 ## The drift subsystem
 
-`drift verify` and `drift snapshot` are implemented. The flow:
+`drift verify`, `drift diff`, and `drift snapshot` are implemented. The flow:
 
 1. **Catalog read** (`internal/drift/catalog`) issues 8 set-based queries that
    each cover every tenant schema at once, never one query per table. Constraints
@@ -97,11 +97,17 @@ internal/
    Snapshots are deterministic JSON with no timestamps so they diff cleanly in
    git.
 
+5. **Field-level diff** (`internal/drift/diffgen`) backs `drift diff`. Where
+   verify answers "did anything change", diffgen answers "what exactly
+   changed": a modified column reports its type, nullability, default,
+   generated, identity, and position changes; a modified constraint reports its
+   kind and definition. Snapshot-mode diff falls back to object-level findings,
+   since the hashes alone do not carry the reference's field values.
+
 Object types covered: tables, columns (type, nullability, default, generated,
 identity, position), primary/foreign/unique/check constraints, indexes, views,
 sequences (structure only), functions (normalized body hash), triggers, RLS
 policies, and enum types (label order significant).
 
-Still ahead: `drift diff` with field-level explanations (M4) and `drift repair`
-with dependency-ordered, destructive-guarded DDL (M5). See sections 5 and 9 of
-[the specification](../pgfleet-spec.md).
+Still ahead: `drift repair` with dependency-ordered, destructive-guarded DDL
+(M5). See sections 5 and 9 of [the specification](../pgfleet-spec.md).
