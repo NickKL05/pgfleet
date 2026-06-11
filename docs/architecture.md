@@ -67,10 +67,41 @@ internal/
 - Re-running after a partial failure is idempotent: completed tenants are
   skipped via the state table, failed tenants resume at the failed migration.
 
-## Planned: drift subsystem
+## The drift subsystem
 
-The drift detector will read a fixed, small number of set-based catalog queries
-(targeting at most 8 for the whole database), build a normalized structural
-model per schema, hash it into a fingerprint, and diff each tenant against a
-canonical reference (a live template schema or a committed snapshot). See
-sections 5 and 9 of [the specification](../pgfleet-spec.md).
+`drift verify` and `drift snapshot` are implemented. The flow:
+
+1. **Catalog read** (`internal/drift/catalog`) issues 8 set-based queries that
+   each cover every tenant schema at once, never one query per table. Constraints
+   and non-constraint indexes are merged into a single discriminated UNION to
+   stay within the 8-query budget (spec 5.2). Reads scale with object count, not
+   tenant count, which is what keeps verify under the 5s target at 250 schemas.
+
+2. **Model assembly** (`internal/drift/catalog`) turns rows into one normalized
+   `model.Schema` per tenant. Every definition has its owning schema qualifier
+   stripped (so tenant_42.users and tenant_template.users compare equal),
+   whitespace collapsed, textual cast noise removed (`'x'::text` equals `'x'`),
+   and type names canonicalized (`varchar` equals `character varying`).
+
+3. **Fingerprint** (`internal/drift/fingerprint`) flattens the model into
+   `(type, name, body)` objects sorted deterministically, hashes each body with
+   SHA-256, and folds the per-object hashes into one schema fingerprint. The
+   per-object hashes are retained so `Diff` can classify each difference as
+   missing, extra, or modified. Fingerprints are computed concurrently across
+   schemas (`internal/drift`).
+
+4. **Reference and comparison** (`internal/drift`) builds the canonical
+   fingerprint from either a live template schema or a committed
+   `schema.lock.json` snapshot, then diffs every tenant against it. The same
+   model options (ignore list, column-order, strict) are applied to both sides.
+   Snapshots are deterministic JSON with no timestamps so they diff cleanly in
+   git.
+
+Object types covered: tables, columns (type, nullability, default, generated,
+identity, position), primary/foreign/unique/check constraints, indexes, views,
+sequences (structure only), functions (normalized body hash), triggers, RLS
+policies, and enum types (label order significant).
+
+Still ahead: `drift diff` with field-level explanations (M4) and `drift repair`
+with dependency-ordered, destructive-guarded DDL (M5). See sections 5 and 9 of
+[the specification](../pgfleet-spec.md).

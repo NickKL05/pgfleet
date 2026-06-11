@@ -8,7 +8,7 @@ schema-per-tenant databases (50 to 5000+ schemas in a single database).
 - **Migration runner**: versioned SQL migrations applied across every tenant
   schema, with per-tenant state tracking, advisory locking, failure isolation,
   and a bounded worker pool.
-- **Drift detector** (in progress): structural fingerprinting of schemas and
+- **Drift detector**: structural fingerprinting of schemas and (in progress)
   corrective DDL generation against a canonical reference.
 
 ## Status
@@ -22,7 +22,10 @@ today:
 | Migrations | `migrate up` | done |
 | Migrations | `migrate down` | done |
 | Migrations | `migrate status` | done |
-| Drift | `drift verify` / `diff` / `repair` / `snapshot` | planned (M3 to M5) |
+| Drift | `drift verify` | done |
+| Drift | `drift snapshot` | done |
+| Drift | `drift diff` | planned (M4) |
+| Drift | `drift repair` | planned (M5) |
 
 See [docs/architecture.md](docs/architecture.md) for the design and
 [the specification](pgfleet-spec.md) for the full requirements.
@@ -71,8 +74,9 @@ under two minutes:
 docker compose up -d                         # Postgres seeded with 250 tenants
 export PGFLEET_DSN='postgres://pgfleet:pgfleet@localhost:5432/fleet'
 pgfleet migrate up                           # create users + index in all 250
+pgfleet drift verify                         # clean: 250 tenants match the template
 psql "$PGFLEET_DSN" -f demo/introduce_drift.sql   # drift 3 tenants on purpose
-pgfleet drift verify                         # (M3+) flags tenant_087, _142, _199
+pgfleet drift verify                         # flags tenant_087, _142, _199 (exit 1)
 ```
 
 ## Development
@@ -83,9 +87,18 @@ go vet ./...
 gofmt -l .
 ```
 
-Integration tests use testcontainers against real Postgres 15, 16, and 17 and
-require Docker. They are gated behind a build tag so the default `go test` stays
-fast and offline.
+Integration tests run the real catalog queries against a live PostgreSQL. They
+are gated behind the `integration` build tag so the default `go test` stays fast
+and offline:
+
+```
+docker compose up -d
+PGFLEET_TEST_DSN='postgres://pgfleet:pgfleet@localhost:5432/fleet' \
+  go test -tags integration ./internal/drift/...
+```
+
+The full testcontainers matrix across Postgres 15, 16, and 17 lands with the
+remaining milestones.
 
 ## License
 
