@@ -20,6 +20,7 @@ import (
 // Direction selects whether the runner applies up or down migrations.
 type Direction int
 
+// Migration directions.
 const (
 	Up Direction = iota
 	Down

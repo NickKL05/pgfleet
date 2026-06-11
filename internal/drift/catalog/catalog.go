@@ -16,8 +16,10 @@ type Querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
-// Raw rows scanned from the catalog, before assembly into models.
+// The row types below are raw rows scanned from the catalog, before assembly
+// into models.
 type (
+	// ColumnRow is one row of the columns query.
 	ColumnRow struct {
 		Schema, Table, Name string
 		AttNum              int
@@ -27,28 +29,35 @@ type (
 		Generated           string // "" or "s"
 		Identity            string // "", "a", "d"
 	}
+	// ConstraintRow is one constraint of the constraints/indexes query.
 	ConstraintRow struct {
 		Schema, Table, Name string
 		Contype             string // p, f, u, c
 		Def                 string
 	}
+	// IndexRow is one non-constraint index of the constraints/indexes query.
 	IndexRow struct {
 		Schema, Table, Name, Def string
 	}
+	// ViewRow is one row of the views query.
 	ViewRow struct {
 		Schema, Name, Def string
 	}
+	// SequenceRow is one row of the sequences query.
 	SequenceRow struct {
 		Schema, Name, DataType     string
 		Start, Min, Max, Increment int64
 		Cycle                      bool
 	}
+	// FunctionRow is one row of the functions query.
 	FunctionRow struct {
 		Schema, Name, Args, Def string
 	}
+	// TriggerRow is one row of the triggers query.
 	TriggerRow struct {
 		Schema, Table, Name, Def string
 	}
+	// PolicyRow is one row of the policies query.
 	PolicyRow struct {
 		Schema, Table, Name string
 		Command             string
@@ -56,6 +65,7 @@ type (
 		Roles               []string
 		Using, WithCheck    *string
 	}
+	// EnumRow is one row of the enum-types query.
 	EnumRow struct {
 		Schema, Name string
 		Labels       []string

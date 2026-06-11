@@ -88,7 +88,9 @@ func RenderDriftHuman(w io.Writer, r *DriftReport) error {
 		for _, d := range t.Differences {
 			fmt.Fprintf(tw, "  %s\t%s\t%s\n", d.Class, d.Type, d.Name)
 		}
-		tw.Flush()
+		if err := tw.Flush(); err != nil {
+			return err
+		}
 	}
 	fmt.Fprintf(w, "\n%d of %d tenants drifted from %s.\n",
 		r.Summary["drifted"], len(r.Tenants), r.Reference)

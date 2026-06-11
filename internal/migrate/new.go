@@ -62,9 +62,13 @@ func writeNew(path, body string) error {
 	if err != nil {
 		return fmt.Errorf("create %s: %w", path, err)
 	}
-	defer f.Close()
-	if _, err := f.WriteString(body); err != nil {
-		return err
+	_, writeErr := f.WriteString(body)
+	closeErr := f.Close()
+	if writeErr != nil {
+		return fmt.Errorf("write %s: %w", path, writeErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close %s: %w", path, closeErr)
 	}
 	return nil
 }

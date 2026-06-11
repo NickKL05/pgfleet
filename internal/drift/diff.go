@@ -14,6 +14,7 @@ import (
 // ReferenceMode selects where the canonical reference comes from.
 type ReferenceMode string
 
+// Supported reference modes.
 const (
 	ModeSchema   ReferenceMode = "schema"
 	ModeSnapshot ReferenceMode = "snapshot"

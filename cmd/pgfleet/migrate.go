@@ -107,7 +107,7 @@ func newMigrateNewCmd(gf *globalFlags) *cobra.Command {
 		Use:   "new <description>",
 		Short: "Scaffold an up/down migration pair",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			a, err := loadApp(gf)
 			if err != nil {
 				return err

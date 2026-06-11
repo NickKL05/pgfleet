@@ -49,6 +49,7 @@ func NewSchema(name string) *Schema {
 	}
 }
 
+// Table is a relation with its ordered columns, constraints, and indexes.
 type Table struct {
 	Name        string
 	Columns     []*Column // ordered by catalog position
@@ -56,6 +57,7 @@ type Table struct {
 	Indexes     map[string]*Index
 }
 
+// Column is a single table column with its normalized attributes.
 type Column struct {
 	Name      string
 	Position  int
@@ -66,22 +68,26 @@ type Column struct {
 	Identity  string // "", "a" (always), "d" (by default)
 }
 
+// Constraint is a primary key, foreign key, unique, or check constraint.
 type Constraint struct {
 	Name       string
 	Type       string // p, f, u, c
 	Definition string // normalized pg_get_constraintdef, schema stripped
 }
 
+// Index is a non-constraint index on a table.
 type Index struct {
 	Name       string
 	Definition string // normalized pg_get_indexdef, schema stripped
 }
 
+// View is a view with its normalized definition.
 type View struct {
 	Name       string
 	Definition string // normalized pg_get_viewdef
 }
 
+// Sequence is a sequence described by structure only, not current value.
 type Sequence struct {
 	Name      string
 	DataType  string
@@ -92,18 +98,21 @@ type Sequence struct {
 	Cycle     bool
 }
 
+// Function is an in-schema function identified by name and argument signature.
 type Function struct {
 	Name     string // proname
 	Args     string // identity arguments, e.g. "integer, text"
 	BodyHash string // sha256 of normalized pg_get_functiondef
 }
 
+// Trigger is a non-internal trigger on a table.
 type Trigger struct {
 	Name       string
 	Table      string
 	Definition string // normalized pg_get_triggerdef, schema stripped
 }
 
+// Policy is a row-level security policy on a table.
 type Policy struct {
 	Name       string
 	Table      string
@@ -114,6 +123,7 @@ type Policy struct {
 	WithCheck  string // normalized
 }
 
+// EnumType is an enum type whose label order is significant.
 type EnumType struct {
 	Name   string
 	Labels []string // significant order

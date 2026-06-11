@@ -9,6 +9,15 @@ linters:
     - unused
     - misspell
     - revive
+  settings:
+    errcheck:
+      # Formatted writes to an io.Writer (rendered output) return errors that
+      # are not actionable for stdout; excluding them keeps the render code
+      # readable without scattering blank assignments.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
 
 issues:
   max-issues-per-linter: 0

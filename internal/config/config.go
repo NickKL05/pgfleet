@@ -21,6 +21,7 @@ const DefaultPath = "pgfleet.yaml"
 // DiscoveryMode selects how tenant schemas are enumerated.
 type DiscoveryMode string
 
+// Supported tenant discovery modes.
 const (
 	DiscoveryQuery   DiscoveryMode = "query"
 	DiscoveryPattern DiscoveryMode = "pattern"
@@ -30,6 +31,7 @@ const (
 // ReferenceMode selects the canonical reference for drift detection.
 type ReferenceMode string
 
+// Supported drift reference modes.
 const (
 	ReferenceSchema   ReferenceMode = "schema"
 	ReferenceSnapshot ReferenceMode = "snapshot"
@@ -44,15 +46,18 @@ type Config struct {
 	Run        Run        `yaml:"run"`
 }
 
+// Database holds connection settings; the DSN itself lives only in the env.
 type Database struct {
 	DSNEnv string `yaml:"dsn_env"`
 }
 
+// Tenants configures tenant discovery and exclusion.
 type Tenants struct {
 	Discovery Discovery `yaml:"discovery"`
 	Exclude   []string  `yaml:"exclude"`
 }
 
+// Discovery selects how tenant schemas are enumerated.
 type Discovery struct {
 	Mode    DiscoveryMode `yaml:"mode"`
 	Query   string        `yaml:"query"`
@@ -60,23 +65,27 @@ type Discovery struct {
 	Static  []string      `yaml:"static"`
 }
 
+// Migrations configures the migration directory, state table, and lock.
 type Migrations struct {
 	Dir    string `yaml:"dir"`
 	Table  string `yaml:"table"`
 	LockID int64  `yaml:"lock_id"`
 }
 
+// Drift configures the canonical reference and the ignore list.
 type Drift struct {
 	Reference Reference `yaml:"reference"`
 	Ignore    []string  `yaml:"ignore"`
 }
 
+// Reference names the canonical source drift is compared against.
 type Reference struct {
 	Mode     ReferenceMode `yaml:"mode"`
 	Schema   string        `yaml:"schema"`
 	Snapshot string        `yaml:"snapshot"`
 }
 
+// Run configures concurrency, timeouts, and failure behavior.
 type Run struct {
 	StatementTimeout Duration `yaml:"statement_timeout"`
 	LockTimeout      Duration `yaml:"lock_timeout"`
@@ -88,6 +97,7 @@ type Run struct {
 // such as "60s" or "5s".
 type Duration time.Duration
 
+// UnmarshalYAML parses a duration string such as "60s" into a Duration.
 func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 	var s string
 	if err := value.Decode(&s); err != nil {
