@@ -1,0 +1,26 @@
+# Binaries
+/pgfleet
+/pgfleet.exe
+/dist/
+*.exe
+*.test
+*.out
+
+# Local config and secrets
+*.local.yaml
+.env
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Repair output produced by the drift tool
+/repair/
+
+# Generated demo GIF (rendered locally with vhs; demo.svg is committed)
+/demo/demo.gif
+
+# Coverage
+coverage.out
+coverage.html

@@ -1,0 +1,55 @@
+version: 2
+
+project_name: pgfleet
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: pgfleet
+    main: ./cmd/pgfleet
+    binary: pgfleet
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+      - goos: darwin
+        goarch: amd64
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+      - pgfleet.yaml
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge "
+
+release:
+  prerelease: auto
+  footer: |
+    Built from a single zero-cgo Go binary. See the README for the quick start.
