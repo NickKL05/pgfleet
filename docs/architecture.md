@@ -1,0 +1,76 @@
+# pgfleet architecture
+
+pgfleet is one binary with two subsystems over a shared core. This document
+describes the packages that exist today and how a run flows through them.
+
+## Package layout
+
+```
+cmd/pgfleet/        CLI wiring (cobra): flags, exit codes, command handlers
+internal/
+  config/           load, validate, redact configuration
+  discovery/        tenant enumeration and --tenants glob filtering
+  migrate/          migration source parsing, state table, locks, runner
+  pgutil/           pool construction, search_path, identifier quoting
+  report/           human and JSON renderers over a shared run report
+  drift/            (planned M3 to M5) catalog readers, fingerprint, diffgen
+```
+
+## A migrate up run, end to end
+
+1. **Config** (`internal/config`) is loaded and validated. A missing required
+   key produces an error that names the key and maps to exit code 2. The DSN is
+   resolved from the environment, never the file, and is redacted everywhere.
+
+2. **Migration source** (`internal/migrate`) reads the migration directory once.
+   Filenames are `NNNN_description.up.sql` / `.down.sql`. Bytes are normalized
+   (LF endings, trailing whitespace stripped) and SHA-256 checksummed. Duplicate
+   versions are a hard error; gaps are allowed. The bytes are loaded a single
+   time and shared across all tenant workers to keep memory flat at high tenant
+   counts.
+
+3. **Pool** (`internal/pgutil`) is built with `MaxConns = concurrency + 2` so the
+   live connection count is bounded. Each connection sets session
+   `statement_timeout` and `lock_timeout` on connect.
+
+4. **Discovery** (`internal/discovery`) enumerates tenants once per invocation
+   (query, pattern, or static mode), applies the exclude list, then applies the
+   optional `--tenants` glob for canary rollouts. The result is cached and shared
+   by both subsystems.
+
+5. **Runner** (`internal/migrate`) drives a bounded worker pool
+   (`errgroup` + `SetLimit`). Each tenant runs on its own connection:
+   - The state table `_pgfleet_migrations` is created if absent.
+   - Applied checksums are compared to disk; a mismatch aborts that tenant with
+     status `checksum-mismatch` unless `--allow-dirty`.
+   - Each pending migration runs in its own transaction with a per-tenant
+     transaction-scoped advisory lock and `SET LOCAL` timeouts. A held lock
+     yields status `locked` (retried once at the end of the run), not an error.
+   - A migration tagged `-- pgfleet:no-transaction` on line 1 runs outside a
+     transaction under a session-level advisory lock instead, for statements
+     like `CREATE INDEX CONCURRENTLY`.
+   - A failed migration rolls back only itself; the tenant is marked `failed` at
+     that version and the run continues. One tenant never blocks another unless
+     `fail_fast` is set.
+
+6. **Report** (`internal/report`) collects per-tenant results. Human output
+   groups tenants by (version, status) so a healthy fleet collapses to one line,
+   and expands failures with their Postgres error. `--json` emits the same data
+   as `{run_id, started_at, tenants, summary}`.
+
+## Isolation and safety properties
+
+- Read-only paths (dry run) open `BEGIN READ ONLY` transactions, so they cannot
+  write even by mistake.
+- Destructive paths (`migrate down`) print a plan and require confirmation or
+  `--yes`.
+- Re-running after a partial failure is idempotent: completed tenants are
+  skipped via the state table, failed tenants resume at the failed migration.
+
+## Planned: drift subsystem
+
+The drift detector will read a fixed, small number of set-based catalog queries
+(targeting at most 8 for the whole database), build a normalized structural
+model per schema, hash it into a fingerprint, and diff each tenant against a
+canonical reference (a live template schema or a committed snapshot). See
+sections 5 and 9 of [the specification](../pgfleet-spec.md).

@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: pgfleet
+      POSTGRES_PASSWORD: pgfleet
+      POSTGRES_DB: fleet
+    ports:
+      - "5432:5432"
+    # The demo seed runs once on first initialization, creating the control
+    # table, 250 tenant schemas, and the canonical tenant_template.
+    volumes:
+      - ./demo/seed.sql:/docker-entrypoint-initdb.d/01_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgfleet -d fleet"]
+      interval: 2s
+      timeout: 3s
+      retries: 15

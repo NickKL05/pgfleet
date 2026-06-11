@@ -1,0 +1,37 @@
+# pgfleet configuration. All values are overridable by flags and PGFLEET_* env vars.
+# Precedence (lowest to highest): config file, then env, then flag.
+
+database:
+  # The DSN itself is never stored here. pgfleet reads it from the named env var.
+  dsn_env: PGFLEET_DSN
+
+tenants:
+  # Exactly one discovery mode is required.
+  discovery:
+    mode: query                       # query | pattern | static
+    query: "select schema_name from control.tenants where active"
+    pattern: "tenant_%"               # used when mode is pattern (ILIKE against pg_namespace)
+    static: []                        # explicit list when mode is static
+  exclude:
+    - tenant_template
+    - "tenant_archive_%"
+
+migrations:
+  dir: ./migrations
+  table: _pgfleet_migrations          # created inside each tenant schema
+  lock_id: 743201                     # advisory lock namespace
+
+drift:
+  reference:
+    mode: schema                      # schema | snapshot
+    schema: tenant_template
+    snapshot: ./schema.lock.json
+  ignore:
+    - "table:_pgfleet_migrations"
+    - "comment:*"
+
+run:
+  concurrency: 16
+  statement_timeout: 60s
+  lock_timeout: 5s
+  fail_fast: false
