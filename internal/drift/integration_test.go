@@ -15,8 +15,11 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/NickKL05/pgfleet/internal/drift/diffgen"
 )
 
 func testPool(t *testing.T) *pgxpool.Pool {
@@ -107,5 +110,53 @@ func TestIntegrationVerifyDetectsMutation(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected missing index difference, got %+v", rep.Tenants[0].Differences)
+	}
+}
+
+// TestIntegrationRepairConverges is spec test T3: apply the generated repair to
+// a drifted tenant and confirm it converges to zero drift. It exercises all
+// three difference classes at once: a missing index, a modified column, and an
+// extra table.
+func TestIntegrationRepairConverges(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	setupSchema(t, pool, "it_template")
+	setupSchema(t, pool, "it_tenant_c")
+
+	mutations := []string{
+		"drop index it_tenant_c.users_created_at_idx",                                                             // missing index
+		"alter table it_tenant_c.users alter column display_name type varchar(100)",                               // modified column
+		"create table it_tenant_c.rogue (id bigint generated always as identity primary key, note text not null)", // extra table
+	}
+	for _, m := range mutations {
+		if _, err := pool.Exec(ctx, m); err != nil {
+			t.Fatalf("mutation %q: %v", m, err)
+		}
+	}
+
+	opts := diffgen.RepairOptions{AllowDestructive: true}
+	plans, err := Repair(ctx, pool, []string{"it_tenant_c"}, "it_template", opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plans) != 1 || !plans[0].HasWork() {
+		t.Fatalf("expected a repair plan with work, got %+v", plans)
+	}
+
+	applyOpts := ApplyOptions{LockID: 743201, StatementTimeout: 30 * time.Second, LockTimeout: 5 * time.Second}
+	if err := ApplyRepair(ctx, pool, plans[0], applyOpts); err != nil {
+		t.Fatalf("apply repair: %v", err)
+	}
+
+	ref, err := ReferenceFromSchema(ctx, pool, "it_template", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rep, err := Verify(ctx, pool, []string{"it_tenant_c"}, ref, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Drifted() {
+		t.Fatalf("repair did not converge; remaining drift: %+v", rep.Tenants[0].Differences)
 	}
 }

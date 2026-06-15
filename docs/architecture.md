@@ -69,7 +69,8 @@ internal/
 
 ## The drift subsystem
 
-`drift verify`, `drift diff`, and `drift snapshot` are implemented. The flow:
+`drift verify`, `drift diff`, `drift repair`, and `drift snapshot` are
+implemented. The flow:
 
 1. **Catalog read** (`internal/drift/catalog`) issues 8 set-based queries that
    each cover every tenant schema at once, never one query per table. Constraints
@@ -109,5 +110,19 @@ identity, position), primary/foreign/unique/check constraints, indexes, views,
 sequences (structure only), functions (normalized body hash), triggers, RLS
 policies, and enum types (label order significant).
 
-Still ahead: `drift repair` with dependency-ordered, destructive-guarded DDL
-(M5). See sections 5 and 9 of [the specification](../pgfleet-spec.md).
+6. **Repair** (`internal/drift/diffgen` plus `internal/drift/repair.go`) turns
+   the diff into corrective DDL. Each difference becomes a CREATE/ADD (missing),
+   DROP (extra), or ALTER (modified) statement. Whole-table additions and
+   removals are handled as a unit so child objects are not emitted twice.
+   Statements are ordered so dependents drop before dependencies and
+   dependencies are created before dependents. `DROP TABLE` and `DROP COLUMN`
+   are refused unless `--allow-destructive`; such drift is reported and skipped
+   otherwise. Generation only reads the catalog; `--apply` executes each
+   tenant's plan in one transaction under the same advisory lock and timeouts as
+   a migration, after a confirmation prompt. Repair needs full object
+   definitions, so it requires a schema-mode reference rather than a snapshot.
+
+The end-to-end property holds (spec test T3): applying a generated repair to a
+drifted tenant converges it to zero drift, verified against live PostgreSQL.
+
+See sections 5 and 9 of [the specification](../pgfleet-spec.md).

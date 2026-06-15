@@ -9,6 +9,7 @@ import (
 
 	"github.com/NickKL05/pgfleet/internal/config"
 	"github.com/NickKL05/pgfleet/internal/drift"
+	"github.com/NickKL05/pgfleet/internal/drift/diffgen"
 	"github.com/NickKL05/pgfleet/internal/drift/model"
 	"github.com/NickKL05/pgfleet/internal/report"
 )
@@ -31,8 +32,8 @@ func newDriftCmd(gf *globalFlags) *cobra.Command {
 	cmd.AddCommand(
 		newDriftVerifyCmd(gf, df),
 		newDriftDiffCmd(gf, df),
+		newDriftRepairCmd(gf, df),
 		newDriftSnapshotCmd(gf, df),
-		driftStub("repair", "Generate corrective DDL for a drifted tenant (planned M5)"),
 	)
 	return cmd
 }
@@ -133,6 +134,135 @@ func newDriftDiffCmd(gf *globalFlags, df *driftFlags) *cobra.Command {
 	return cmd
 }
 
+func newDriftRepairCmd(gf *globalFlags, df *driftFlags) *cobra.Command {
+	var all, apply, yes, allowDestructive bool
+	var out string
+	cmd := &cobra.Command{
+		Use:   "repair <tenant>|--all",
+		Short: "Generate (or apply) dependency-ordered corrective DDL",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if all == (len(args) == 1) {
+				return usageErr(fmt.Errorf("provide exactly one of <tenant> or --all"))
+			}
+			ctx := cmd.Context()
+			a, err := loadApp(gf)
+			if err != nil {
+				return err
+			}
+			// Repair needs full object definitions, which a snapshot does not carry.
+			if a.cfg.Drift.Reference.Mode != config.ReferenceSchema {
+				return usageErr(fmt.Errorf("repair requires drift.reference.mode = schema (needs full object definitions)"))
+			}
+			if err := a.connect(ctx); err != nil {
+				return err
+			}
+			defer a.close()
+
+			var tenants []string
+			if all {
+				if tenants, err = a.tenants(ctx); err != nil {
+					return err
+				}
+			} else {
+				tenants = []string{args[0]}
+			}
+
+			plans, err := drift.Repair(ctx, a.pool, tenants, a.cfg.Drift.Reference.Schema, diffgen.RepairOptions{
+				Model:            driftOptions(a.cfg, df).Model,
+				AllowDestructive: allowDestructive,
+			})
+			if err != nil {
+				return connErr(err)
+			}
+
+			if apply {
+				return runRepairApply(ctx, a, plans, yes)
+			}
+			return runRepairGenerate(plans, out)
+		},
+	}
+	cmd.Flags().BoolVar(&all, "all", false, "repair every discovered tenant")
+	cmd.Flags().BoolVar(&apply, "apply", false, "apply the repair instead of writing files")
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt (for CI)")
+	cmd.Flags().BoolVar(&allowDestructive, "allow-destructive", false, "permit DROP TABLE and DROP COLUMN (R5.9)")
+	cmd.Flags().StringVar(&out, "out", "repair", "directory for generated .sql files")
+	return cmd
+}
+
+// runRepairGenerate writes per-tenant repair files and reports a summary.
+func runRepairGenerate(plans []*diffgen.RepairPlan, out string) error {
+	written, err := drift.WriteRepairFiles(out, plans)
+	if err != nil {
+		return failureErr(err)
+	}
+
+	work := false
+	skipped := 0
+	for _, p := range plans {
+		if p.HasWork() {
+			work = true
+		}
+		skipped += len(p.Skipped)
+	}
+
+	if len(written) == 0 {
+		fmt.Println("No drift; nothing to repair.")
+		return nil
+	}
+	for _, path := range written {
+		fmt.Printf("wrote %s\n", path)
+	}
+	if skipped > 0 {
+		fmt.Printf("\n%d action(s) skipped (see file comments; --allow-destructive or manual action required)\n", skipped)
+	}
+	if work {
+		return failureCode()
+	}
+	return nil
+}
+
+// runRepairApply confirms then applies the repair to each tenant in a guarded
+// transaction (R5.8).
+func runRepairApply(ctx context.Context, a *app, plans []*diffgen.RepairPlan, yes bool) error {
+	var withWork []*diffgen.RepairPlan
+	total := 0
+	for _, p := range plans {
+		if p.HasWork() {
+			withWork = append(withWork, p)
+			total += len(p.Statements)
+		}
+	}
+	if len(withWork) == 0 {
+		fmt.Println("No drift; nothing to apply.")
+		return nil
+	}
+	if !yes {
+		if err := confirmAction(fmt.Sprintf("apply %d repair statement(s)", total), len(withWork)); err != nil {
+			return err
+		}
+	}
+
+	applyOpts := drift.ApplyOptions{
+		LockID:           a.cfg.Migrations.LockID,
+		StatementTimeout: a.cfg.Run.StatementTimeout.Std(),
+		LockTimeout:      a.cfg.Run.LockTimeout.Std(),
+	}
+	failed := 0
+	for _, p := range withWork {
+		if err := drift.ApplyRepair(ctx, a.pool, p, applyOpts); err != nil {
+			failed++
+			fmt.Printf("%s: FAILED: %v\n", p.Tenant, err)
+			continue
+		}
+		fmt.Printf("%s: applied %d statement(s)\n", p.Tenant, len(p.Statements))
+	}
+	if failed > 0 {
+		return failureErr(fmt.Errorf("%d of %d tenant(s) failed to repair", failed, len(withWork)))
+	}
+	return nil
+}
+
 func newDriftSnapshotCmd(gf *globalFlags, df *driftFlags) *cobra.Command {
 	var out string
 	cmd := &cobra.Command{
@@ -226,14 +356,4 @@ func short(hash string) string {
 		return hash[:12]
 	}
 	return hash
-}
-
-func driftStub(use, short string) *cobra.Command {
-	return &cobra.Command{
-		Use:   use,
-		Short: short,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return usageErr(fmt.Errorf("drift %s is not implemented yet", use))
-		},
-	}
 }

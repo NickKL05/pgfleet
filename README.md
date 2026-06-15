@@ -8,8 +8,8 @@ schema-per-tenant databases (50 to 5000+ schemas in a single database).
 - **Migration runner**: versioned SQL migrations applied across every tenant
   schema, with per-tenant state tracking, advisory locking, failure isolation,
   and a bounded worker pool.
-- **Drift detector**: structural fingerprinting of schemas and (in progress)
-  corrective DDL generation against a canonical reference.
+- **Drift detector**: structural fingerprinting of schemas and corrective DDL
+  generation against a canonical reference.
 
 ## Status
 
@@ -25,7 +25,7 @@ today:
 | Drift | `drift verify` | done |
 | Drift | `drift snapshot` | done |
 | Drift | `drift diff` | done |
-| Drift | `drift repair` | planned (M5) |
+| Drift | `drift repair` | done |
 
 See [docs/architecture.md](docs/architecture.md) for the design and
 [the specification](pgfleet-spec.md) for the full requirements.
@@ -77,7 +77,15 @@ pgfleet migrate up                           # create users + index in all 250
 pgfleet drift verify                         # clean: 250 tenants match the template
 psql "$PGFLEET_DSN" -f demo/introduce_drift.sql   # drift 3 tenants on purpose
 pgfleet drift verify                         # flags tenant_087, _142, _199 (exit 1)
+pgfleet drift diff tenant_142                # explains the exact field change
+pgfleet drift repair --all --out repair/     # write corrective DDL per tenant
+pgfleet drift repair tenant_087 --apply      # apply the fix in a guarded transaction
 ```
+
+Repair refuses to emit `DROP TABLE` or `DROP COLUMN` unless `--allow-destructive`
+is set; such drift is reported and skipped otherwise. `--apply` runs each
+tenant's fix in a single transaction with the same advisory lock and timeouts as
+migrations, after a confirmation prompt (`--yes` bypasses it for CI).
 
 ## Development
 
