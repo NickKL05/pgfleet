@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="607" height="753" viewBox="0 0 607 753" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+<rect width="607" height="753" rx="10" fill="#1e1e2e"/>
+<rect width="607" height="30" rx="10" fill="#181825"/>
+<rect y="20" width="607" height="10" fill="#181825"/>
+<circle cx="18" cy="15" r="6" fill="#f38ba8"/>
+<circle cx="38" cy="15" r="6" fill="#f9e2af"/>
+<circle cx="58" cy="15" r="6" fill="#a6e3a1"/>
+<text x="303.5" y="19" fill="#6c7086" font-size="12" text-anchor="middle">pgfleet drift demo</text>
+<text x="18.0" y="44" font-size="14.0" xml:space="preserve"><tspan fill="#a6e3a1">$ </tspan><tspan fill="#cdd6f4">pgfleet drift verify</tspan></text>
+<text x="18.0" y="65" font-size="14.0" xml:space="preserve"><tspan fill="#a6e3a1">No drift. 250 tenants match schema tenant_template.</tspan></text>
+<text x="18.0" y="86" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4"></tspan></text>
+<text x="18.0" y="107" font-size="14.0" xml:space="preserve"><tspan fill="#a6e3a1">$ </tspan><tspan fill="#cdd6f4">psql -f demo/introduce_drift.sql   </tspan><tspan fill="#6c7086"># break 3 tenants on purpose</tspan></text>
+<text x="18.0" y="128" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4"></tspan></text>
+<text x="18.0" y="149" font-size="14.0" xml:space="preserve"><tspan fill="#a6e3a1">$ </tspan><tspan fill="#cdd6f4">pgfleet drift verify</tspan></text>
+<text x="18.0" y="170" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4">tenant_087: 1 difference(s)</tspan></text>
+<text x="18.0" y="191" font-size="14.0" xml:space="preserve"><tspan>  </tspan><tspan fill="#f38ba8">missing</tspan><tspan fill="#cdd6f4">  index  users_created_at_idx</tspan></text>
+<text x="18.0" y="212" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4">tenant_142: 1 difference(s)</tspan></text>
+<text x="18.0" y="233" font-size="14.0" xml:space="preserve"><tspan>  </tspan><tspan fill="#f9e2af">modified</tspan><tspan fill="#cdd6f4">  column  users.display_name</tspan></text>
+<text x="18.0" y="254" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4">tenant_199: 5 difference(s)</tspan></text>
+<text x="18.0" y="275" font-size="14.0" xml:space="preserve"><tspan>  </tspan><tspan fill="#fab387">extra</tspan><tspan fill="#cdd6f4">  column      audit_log.at</tspan></text>
+<text x="18.0" y="296" font-size="14.0" xml:space="preserve"><tspan>  </tspan><tspan fill="#fab387">extra</tspan><tspan fill="#cdd6f4">  column      audit_log.id</tspan></text>
+<text x="18.0" y="317" font-size="14.0" xml:space="preserve"><tspan>  </tspan><tspan fill="#fab387">extra</tspan><tspan fill="#cdd6f4">  column      audit_log.note</tspan></text>
+<text x="18.0" y="338" font-size="14.0" xml:space="preserve"><tspan>  </tspan><tspan fill="#fab387">extra</tspan><tspan fill="#cdd6f4">  constraint  audit_log.audit_log_pkey</tspan></text>
+<text x="18.0" y="359" font-size="14.0" xml:space="preserve"><tspan>  </tspan><tspan fill="#fab387">extra</tspan><tspan fill="#cdd6f4">  table       audit_log</tspan></text>
+<text x="18.0" y="380" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4"></tspan></text>
+<text x="18.0" y="401" font-size="14.0" xml:space="preserve"><tspan fill="#fab387">3 of 250 tenants drifted from schema tenant_template.</tspan></text>
+<text x="18.0" y="422" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4"></tspan></text>
+<text x="18.0" y="443" font-size="14.0" xml:space="preserve"><tspan fill="#a6e3a1">$ </tspan><tspan fill="#cdd6f4">pgfleet drift diff tenant_142</tspan></text>
+<text x="18.0" y="464" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4">tenant_142: 1 difference(s) from schema tenant_template</tspan></text>
+<text x="18.0" y="485" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4">  modified column users.display_name</tspan></text>
+<text x="18.0" y="506" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4">      type: text -&gt; character varying(100)</tspan></text>
+<text x="18.0" y="527" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4"></tspan></text>
+<text x="18.0" y="548" font-size="14.0" xml:space="preserve"><tspan fill="#a6e3a1">$ </tspan><tspan fill="#cdd6f4">pgfleet drift repair tenant_087 --out repair/</tspan></text>
+<text x="18.0" y="569" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4">wrote repair\tenant_087.sql</tspan></text>
+<text x="18.0" y="590" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4"></tspan></text>
+<text x="18.0" y="611" font-size="14.0" xml:space="preserve"><tspan fill="#a6e3a1">$ </tspan><tspan fill="#cdd6f4">cat repair/tenant_087.sql</tspan></text>
+<text x="18.0" y="632" font-size="14.0" xml:space="preserve"><tspan fill="#89b4fa">-- pgfleet repair for tenant_087</tspan></text>
+<text x="18.0" y="653" font-size="14.0" xml:space="preserve"><tspan fill="#89b4fa">-- 1 statement(s), 0 skipped</tspan></text>
+<text x="18.0" y="674" font-size="14.0" xml:space="preserve"><tspan fill="#89b4fa">SET search_path TO "tenant_087", public;</tspan></text>
+<text x="18.0" y="695" font-size="14.0" xml:space="preserve"><tspan fill="#cdd6f4"></tspan></text>
+<text x="18.0" y="716" font-size="14.0" xml:space="preserve"><tspan fill="#89b4fa">CREATE INDEX users_created_at_idx ON users USING btree (created_at);</tspan></text>
+</svg>

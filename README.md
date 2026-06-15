@@ -1,5 +1,8 @@
 # pgfleet
 
+[![ci](https://github.com/NickKL05/pgfleet/actions/workflows/ci.yml/badge.svg)](https://github.com/NickKL05/pgfleet/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A multi-tenant PostgreSQL migration and drift toolkit for teams running
 schema-per-tenant databases (50 to 5000+ schemas in a single database).
 
@@ -11,33 +14,37 @@ schema-per-tenant databases (50 to 5000+ schemas in a single database).
 - **Drift detector**: structural fingerprinting of schemas and corrective DDL
   generation against a canonical reference.
 
-## Status
+![pgfleet drift demo](demo/demo.svg)
 
-This repository is under active development against a milestone plan. What works
-today:
+## Commands
 
-| Area | Command | State |
+| Area | Command | Purpose |
 | --- | --- | --- |
-| Migrations | `migrate new` | done |
-| Migrations | `migrate up` | done |
-| Migrations | `migrate down` | done |
-| Migrations | `migrate status` | done |
-| Drift | `drift verify` | done |
-| Drift | `drift snapshot` | done |
-| Drift | `drift diff` | done |
-| Drift | `drift repair` | done |
+| Migrations | `migrate new` | scaffold an up/down migration pair |
+| Migrations | `migrate up` | apply pending migrations fleet-wide |
+| Migrations | `migrate down` | roll back to an explicit version |
+| Migrations | `migrate status` | show each tenant's version, grouped |
+| Drift | `drift verify` | pass/fail each tenant against the reference |
+| Drift | `drift diff` | object- and field-level differences |
+| Drift | `drift repair` | generate or apply corrective DDL |
+| Drift | `drift snapshot` | write a deterministic `schema.lock.json` |
 
 See [docs/architecture.md](docs/architecture.md) for the design and
 [the specification](pgfleet-spec.md) for the full requirements.
 
 ## Install
 
+Download a prebuilt binary for your platform from the
+[releases page](https://github.com/NickKL05/pgfleet/releases), or build from
+source:
+
 ```
 go build -o pgfleet ./cmd/pgfleet
 ```
 
 The binary is zero-cgo and statically linkable across linux/amd64, linux/arm64,
-darwin/arm64, and windows/amd64.
+darwin/arm64, and windows/amd64. Releases are cut with
+[goreleaser](https://goreleaser.com) on every `v*` tag.
 
 ## Configuration
 
@@ -68,7 +75,16 @@ usage error, `3` connection or discovery error.
 ## Demo
 
 The `demo/` directory seeds 250 tenant schemas so a reviewer can see the value in
-under two minutes:
+under two minutes. The whole flow is scripted:
+
+```
+./demo/demo.sh
+```
+
+It starts a seeded Postgres, migrates all 250 tenants, breaks three of them on
+purpose, then verifies, explains, and repairs the drift. See
+[demo/README.md](demo/README.md) for details and how to record the GIF. The
+individual steps:
 
 ```
 docker compose up -d                         # Postgres seeded with 250 tenants

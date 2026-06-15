@@ -1,5 +1,7 @@
 version: 2
 
+project_name: pgfleet
+
 before:
   hooks:
     - go mod tidy
@@ -13,7 +15,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      - -s -w -X main.version={{ .Version }}
     goos:
       - linux
       - darwin
@@ -33,9 +35,21 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+      - pgfleet.yaml
 
 checksum:
   name_template: "checksums.txt"
 
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge "
+
 release:
   prerelease: auto
+  footer: |
+    Built from a single zero-cgo Go binary. See the README for the quick start.
