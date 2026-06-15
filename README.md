@@ -95,18 +95,24 @@ go vet ./...
 gofmt -l .
 ```
 
-Integration tests run the real catalog queries against a live PostgreSQL. They
-are gated behind the `integration` build tag so the default `go test` stays fast
-and offline:
+Integration tests exercise the real catalog, migration, and repair paths against
+a live PostgreSQL started via testcontainers. They are gated behind the
+`integration` build tag so the default `go test` stays fast and offline. CI runs
+them across the Postgres 15, 16, and 17 matrix and enforces a 75% coverage gate
+on `internal/` (the database-facing code is only exercised here):
 
 ```
-docker compose up -d
-PGFLEET_TEST_DSN='postgres://pgfleet:pgfleet@localhost:5432/fleet' \
-  go test -tags integration ./internal/drift/...
+# requires Docker; testcontainers pulls the image automatically
+go test -tags integration -coverpkg=./internal/... -coverprofile=coverage.out ./...
+go tool cover -func=coverage.out | tail -1
 ```
 
-The full testcontainers matrix across Postgres 15, 16, and 17 lands with the
-remaining milestones.
+Set `PGFLEET_PG_IMAGE` (e.g. `postgres:16`) to pick the image, or
+`PGFLEET_TEST_DSN` to run against an already-running database instead of
+starting a container. The suite covers the spec test matrix: 50-schema apply
+(T1), failure isolation and resume (T2), drift detect/explain/repair (T3),
+checksum mismatch (T4), advisory-lock contention (T5), a 1000-schema scale run
+(T6), and the snapshot-restore property test.
 
 ## License
 

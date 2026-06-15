@@ -220,12 +220,24 @@ func (r *Rows) readViews(ctx context.Context, db Querier, schemas []string) erro
 	return wrap("views rows", rows.Err())
 }
 
+// qSequences reads standalone sequences only. Sequences owned by a column
+// (identity via deptype 'i', or serial/OWNED BY via deptype 'a') are an
+// implementation detail of that column, which is already captured on the
+// column, so they are excluded to avoid double-representing and to keep repair
+// from recreating them out from under the identity column.
 const qSequences = `
-select schemaname, sequencename, data_type::text,
-       start_value, min_value, max_value, increment_by, cycle
-from pg_sequences
-where schemaname = any($1)
-order by schemaname, sequencename`
+select s.schemaname, s.sequencename, s.data_type::text,
+       s.start_value, s.min_value, s.max_value, s.increment_by, s.cycle
+from pg_sequences s
+join pg_namespace n on n.nspname = s.schemaname
+join pg_class c on c.relname = s.sequencename and c.relnamespace = n.oid
+where s.schemaname = any($1)
+  and not exists (
+    select 1 from pg_depend d
+    where d.classid = 'pg_class'::regclass and d.objid = c.oid
+      and d.deptype in ('i', 'a')
+  )
+order by s.schemaname, s.sequencename`
 
 func (r *Rows) readSequences(ctx context.Context, db Querier, schemas []string) error {
 	rows, err := db.Query(ctx, qSequences, schemas)

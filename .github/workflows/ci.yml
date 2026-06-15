@@ -41,15 +41,35 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: unit tests (race)
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
-      - name: coverage report
-        run: go tool cover -func=coverage.out | tail -1
-      - uses: actions/upload-artifact@v4
+        run: go test -race ./...
+
+  # Integration tests run the real catalog, migration, and repair paths against a
+  # live PostgreSQL started via testcontainers, across the 15/16/17 matrix, and
+  # enforce the 75% coverage gate on internal/ (the DB-facing code is only
+  # exercised here). Docker is available on the ubuntu runners.
+  integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: ["15", "16", "17"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: integration tests + coverage
+        env:
+          PGFLEET_PG_IMAGE: postgres:${{ matrix.pg }}
+        run: go test -tags integration -coverpkg=./internal/... -coverprofile=coverage.out -covermode=atomic ./...
+      - name: coverage gate (internal/ >= 75%)
+        run: |
+          total=$(go tool cover -func=coverage.out | awk '/^total:/ {print $NF}' | tr -d '%')
+          echo "internal/ coverage on postgres:${{ matrix.pg }} = $total%"
+          awk "BEGIN{ exit !($total+0 >= 75) }" || { echo "coverage $total% is below the 75% gate"; exit 1; }
+      - if: matrix.pg == '17'
+        uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: coverage.out
-
-  # Still deferred: the integration matrix across Postgres 15/16/17 and the 75%
-  # coverage gate on internal/. Integration tests exist behind the `integration`
-  # build tag (they need a live database) and are kept out of the unit job so it
-  # stays fast and offline.
