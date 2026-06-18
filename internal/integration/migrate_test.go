@@ -85,8 +85,8 @@ func TestT2_FailureIsolationAndResume(t *testing.T) {
 	}
 	ok, failed := 0, 0
 	for _, r := range rep.Tenants {
-		switch {
-		case r.Schema == bad:
+		switch r.Schema {
+		case bad:
 			if r.Status != report.StatusFailed {
 				t.Fatalf("bad tenant should have failed, got %s", r.Status)
 			}

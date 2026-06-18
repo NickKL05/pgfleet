@@ -1,5 +1,11 @@
 version: "2"
 
+run:
+  # Lint the integration-tagged files too, so the testcontainers suite is held
+  # to the same standard as the rest of the tree.
+  build-tags:
+    - integration
+
 linters:
   enable:
     - errcheck
