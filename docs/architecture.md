@@ -13,7 +13,7 @@ internal/
   migrate/          migration source parsing, state table, locks, runner
   pgutil/           pool construction, search_path, identifier quoting
   report/           human and JSON renderers over a shared run report
-  drift/            (planned M3 to M5) catalog readers, fingerprint, diffgen
+  drift/            catalog readers, fingerprint, diffgen, snapshot, repair
 ```
 
 ## A migrate up run, end to end

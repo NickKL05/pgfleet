@@ -16,6 +16,58 @@ schema-per-tenant databases (50 to 5000+ schemas in a single database).
 
 ![pgfleet drift demo](demo/demo.svg)
 
+## TL;DR
+
+**What it is.** A single Go binary that runs versioned SQL migrations across
+every tenant schema in one PostgreSQL database (50 to 5000+ schemas), and
+detects and repairs schema drift against a canonical reference. One config
+file, one DSN from the environment, fleet-wide operations with per-tenant
+isolation.
+
+**Why it exists.** Schema-per-tenant databases drift: a hotfix applied to one
+tenant by hand, a migration that half-failed, a tenant created before a column
+existed. pgfleet makes the whole fleet converge to one canonical shape and
+proves it did.
+
+**See it work in 60 seconds** (needs Docker and a Go toolchain):
+
+```
+git clone https://github.com/NickKL05/pgfleet.git && cd pgfleet
+./demo/demo.sh
+```
+
+The script seeds 250 tenant schemas, migrates them all, breaks three on
+purpose, then detects, explains, and repairs the drift. Tear it down with
+`docker compose down -v`.
+
+**Use it on your own database:**
+
+```
+go build -o pgfleet ./cmd/pgfleet                     # build the binary
+export PGFLEET_DSN='postgres://user:pass@host:5432/db'  # DSN lives in the env, never the file
+# edit pgfleet.yaml: how to discover tenants + the reference schema
+
+./pgfleet migrate status            # where is each tenant?
+./pgfleet migrate up --dry-run      # print the exact SQL without applying
+./pgfleet migrate up                # apply pending migrations fleet-wide
+./pgfleet drift verify              # does every tenant match the reference?
+./pgfleet drift diff tenant_42      # explain exactly what differs
+./pgfleet drift repair tenant_42    # write corrective DDL (add --apply to run it)
+```
+
+**The vocabulary.** Migrations: `migrate new|up|down|status`. Drift:
+`drift verify|diff|repair|snapshot`. Every command accepts `--json` for
+machine-readable output and `--tenants '<glob>'` to scope a run (e.g. canary a
+subset). Exit codes: `0` success, `1` a tenant failed or drift was found,
+`2` config or usage error, `3` connection or discovery error.
+
+**Safe by default.** Dry-run any change before applying, per-tenant advisory
+locks, failure isolation (one tenant's failure never blocks the fleet),
+checksum verification on every applied migration, and `drift repair` refuses to
+emit `DROP TABLE` or `DROP COLUMN` unless you pass `--allow-destructive`.
+Applying a repair runs in a guarded transaction behind a confirmation prompt
+(`--yes` bypasses it for CI).
+
 ## Commands
 
 | Area | Command | Purpose |
