@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -40,12 +39,9 @@ func Status(ctx context.Context, pool *pgxpool.Pool, tenants []string, set *Set,
 		return nil, err
 	}
 
-	var mu sync.Mutex
-	mu.Lock()
 	for _, res := range results {
 		rep.Add(res)
 	}
-	mu.Unlock()
 	return rep, nil
 }
 

@@ -50,6 +50,12 @@ func TestStripSchema(t *testing.T) {
 		{"REFERENCES tenant_42.parent(id)", "tenant_42", "REFERENCES parent(id)"},
 		// A schema whose name is a prefix of another must not be stripped from it.
 		{"tenant_420.users", "tenant_42", "tenant_420.users"},
+		// A schema whose name is a suffix of another identifier must not be
+		// stripped from it: "user." inside "power_user." stays intact.
+		{"power_user.col", "user", "power_user.col"},
+		{"REFERENCES power_user.col, user.x", "user", "REFERENCES power_user.col, x"},
+		// Two qualifiers in one definition are both stripped.
+		{"tenant_1.a = tenant_1.b", "tenant_1", "a = b"},
 	}
 	for _, c := range cases {
 		if got := StripSchema(c.def, c.schema); got != c.want {

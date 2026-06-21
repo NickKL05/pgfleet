@@ -78,6 +78,22 @@ func (s *Set) Pending(appliedVersion, target int) []Migration {
 	return out
 }
 
+// PendingDown returns the migrations to roll back when moving from
+// appliedVersion down to target, in execution order: highest version first,
+// since a down run unwinds the newest migration before the ones beneath it.
+// Used to preview a down run so the printed SQL matches the order the runner
+// actually applies it in.
+func (s *Set) PendingDown(appliedVersion, target int) []Migration {
+	var out []Migration
+	for i := len(s.migrations) - 1; i >= 0; i-- {
+		m := s.migrations[i]
+		if m.Version > target && m.Version <= appliedVersion {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
 // Load reads and validates every migration file in dir. Duplicate versions are
 // a hard error; gaps in the version sequence are allowed (spec 4.1).
 func Load(dir string) (*Set, error) {

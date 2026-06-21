@@ -94,7 +94,43 @@ func StripSchema(def, schema string) string {
 	if schema == "" || def == "" {
 		return def
 	}
+	// The double-quoted form ("schema".) is unambiguous: the quotes delimit the
+	// identifier, so a plain replace is safe.
 	def = strings.ReplaceAll(def, `"`+schema+`".`, "")
-	def = strings.ReplaceAll(def, schema+".", "")
-	return def
+	// The bare form (schema.) is only a qualifier at an identifier boundary. A
+	// naive replace would mangle a longer identifier that ends in the schema
+	// name, e.g. stripping schema "user" out of "power_user.col". Only strip
+	// when the match is not preceded by an identifier character.
+	return stripBareQualifier(def, schema)
+}
+
+// stripBareQualifier removes occurrences of "schema." that begin at an
+// identifier boundary, leaving substrings such as the "user." inside
+// "power_user." untouched.
+func stripBareQualifier(def, schema string) string {
+	needle := schema + "."
+	var b strings.Builder
+	for i := 0; i < len(def); {
+		j := strings.Index(def[i:], needle)
+		if j < 0 {
+			b.WriteString(def[i:])
+			break
+		}
+		pos := i + j
+		b.WriteString(def[i:pos])
+		// Drop the qualifier only at a boundary; otherwise keep it verbatim.
+		if pos != 0 && isIdentByte(def[pos-1]) {
+			b.WriteString(needle)
+		}
+		i = pos + len(needle)
+	}
+	return b.String()
+}
+
+// isIdentByte reports whether c can appear inside an unquoted SQL identifier.
+func isIdentByte(c byte) bool {
+	return c == '_' ||
+		(c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9')
 }

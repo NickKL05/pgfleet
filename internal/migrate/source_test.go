@@ -1,8 +1,10 @@
 package migrate
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -103,6 +105,69 @@ func TestPending(t *testing.T) {
 	capped := set.Pending(0, 2)
 	if len(capped) != 2 || capped[1].Version != 2 {
 		t.Fatalf("target cap not honored: %+v", capped)
+	}
+}
+
+func TestPendingDownIsHighestFirst(t *testing.T) {
+	dir := t.TempDir()
+	for _, v := range []int{1, 2, 3, 5} {
+		writeFile(t, dir, fmt.Sprintf("%04d_m.up.sql", v), "select 1;")
+		writeFile(t, dir, fmt.Sprintf("%04d_m.down.sql", v), "select 1;")
+	}
+	set, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Rolling back from version 5 to 2 must unwind 5 then 3 (the versions above
+	// the target, newest first); versions 1 and 2 stay put.
+	got := set.PendingDown(5, 2)
+	versions := make([]int, len(got))
+	for i, m := range got {
+		versions[i] = m.Version
+	}
+	if want := []int{5, 3}; !reflect.DeepEqual(versions, want) {
+		t.Fatalf("PendingDown(5,2) = %v, want %v (highest first)", versions, want)
+	}
+
+	// Down to 0 unwinds everything, still newest first.
+	if got := set.PendingDown(5, 0); got[0].Version != 5 || got[len(got)-1].Version != 1 {
+		t.Fatalf("PendingDown(5,0) should run 5..1, got first=%d last=%d", got[0].Version, got[len(got)-1].Version)
+	}
+
+	// Nothing to roll back when already at or below the target.
+	if got := set.PendingDown(2, 2); len(got) != 0 {
+		t.Fatalf("PendingDown(2,2) should be empty, got %v", got)
+	}
+}
+
+func TestScaffoldRefusesToOverwrite(t *testing.T) {
+	dir := t.TempDir()
+	if _, _, err := Scaffold(dir, "first"); err != nil {
+		t.Fatal(err)
+	}
+	// Re-running with a description that slugifies to the same name as an
+	// existing file must not clobber it. Force the collision by writing 0002
+	// ahead of time, then scaffolding again so next=2.
+	writeFile(t, dir, "0002_dup.up.sql", "select 1;")
+	// Highest is now 2, so the next scaffold targets 0003 and succeeds; prove the
+	// pre-existing 0002 file is untouched.
+	if _, _, err := Scaffold(dir, "third"); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(dir, "0002_dup.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "select 1;" {
+		t.Fatalf("existing migration was overwritten: %q", body)
+	}
+}
+
+func TestScaffoldRejectsEmptySlug(t *testing.T) {
+	dir := t.TempDir()
+	if _, _, err := Scaffold(dir, "!!!"); err == nil {
+		t.Fatal("expected an error for a description with no alphanumeric characters")
 	}
 }
 

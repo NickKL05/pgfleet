@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -68,7 +67,6 @@ func NewRunner(pool *pgxpool.Pool, opts Options) *Runner {
 // the end of the run (R4.3).
 func (r *Runner) Run(ctx context.Context, runID, command string, tenants []string) (*report.RunReport, error) {
 	rep := report.NewRunReport(runID, command, time.Now().UTC())
-	var mu sync.Mutex
 
 	results, err := r.runPass(ctx, tenants)
 	if err != nil {
@@ -95,7 +93,6 @@ func (r *Runner) Run(ctx context.Context, runID, command string, tenants []strin
 		}
 	}
 
-	mu.Lock()
 	for _, res := range results {
 		if final, ok := retried[res.Schema]; ok {
 			rep.Add(final)
@@ -103,7 +100,6 @@ func (r *Runner) Run(ctx context.Context, runID, command string, tenants []strin
 		}
 		rep.Add(res)
 	}
-	mu.Unlock()
 	return rep, nil
 }
 
@@ -378,11 +374,7 @@ func (r *Runner) dryRunTenant(ctx context.Context, conn *pgx.Conn, schema string
 
 	var pending []Migration
 	if r.opts.Direction == Down {
-		for _, m := range r.opts.Set.All() {
-			if m.Version > r.opts.Target && m.Version <= from {
-				pending = append(pending, m)
-			}
-		}
+		pending = r.opts.Set.PendingDown(from, r.opts.Target)
 	} else {
 		pending = r.opts.Set.Pending(from, r.opts.Target)
 	}
