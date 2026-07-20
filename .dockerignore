@@ -1,0 +1,14 @@
+# Keep the build context small and reproducible.
+.git
+.github
+web/node_modules
+web/.vite
+*.exe
+*.test
+*.out
+/pgfleet
+/dist
+/repair
+coverage.out
+coverage.html
+demo/demo.gif

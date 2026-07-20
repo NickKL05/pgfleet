@@ -80,6 +80,7 @@ Applying a repair runs in a guarded transaction behind a confirmation prompt
 | Drift | `drift diff` | object- and field-level differences |
 | Drift | `drift repair` | generate or apply corrective DDL |
 | Drift | `drift snapshot` | write a deterministic `schema.lock.json` |
+| Dashboard | `web` | serve the read-only fleet dashboard (optional) |
 
 See [docs/architecture.md](docs/architecture.md) for the design and
 [the specification](pgfleet-spec.md) for the full requirements.
@@ -155,6 +156,82 @@ is set; such drift is reported and skipped otherwise. `--apply` runs each
 tenant's fix in a single transaction with the same advisory lock and timeouts as
 migrations, after a confirmation prompt (`--yes` bypasses it for CI).
 
+## Dashboard (optional)
+
+`pgfleet web` serves a read-only web dashboard that visualizes migration status
+and schema drift across the fleet. The CLI stays the primary interface; the
+dashboard is an observability layer over the same functions (`migrate status`,
+`drift verify`/`diff`) and never mutates a database.
+
+```
+export PGFLEET_DSN='postgres://pgfleet:pgfleet@localhost:5432/fleet'
+pgfleet web --addr :8080          # then open http://localhost:8080
+```
+
+- **Fleet overview** (`/`): summary cards (total / on latest / behind / drifted),
+  a tenants-per-version histogram, and a searchable, status-filterable table of
+  every tenant with color-coded migration and drift badges. Rows link through to
+  detail.
+- **Tenant detail** (`/tenant/:schema`): the object- and field-level diff against
+  the reference, grouped by object, or a clear "matches reference" state.
+
+The API is plain JSON and read-only, so it is also usable directly:
+
+| Endpoint | Returns |
+| --- | --- |
+| `GET /api/summary` | headline counts + reference label |
+| `GET /api/tenants` | per-tenant version, migration status, drift flag |
+| `GET /api/drift` | `drift verify` across the fleet |
+| `GET /api/drift/{tenant}` | object/field diff for one tenant |
+| `GET /api/versions` | tenants-per-version histogram |
+
+Fleet-wide queries are cached for a short window (`--cache-ttl`, default 3s) so a
+page load does not hammer the database; append `?refresh=1` (or use the UI's
+Refresh button) to force a fresh read.
+
+### Architecture
+
+The UI is a Vue 3 + Vite single-page app (source in [web/](web/)) compiled to
+static files and embedded into the binary via `embed.FS`, so the whole dashboard
+ships as part of the one static `pgfleet` binary — no separate frontend to
+deploy. The repository carries the pre-built `internal/web/dist` bundle, so
+`go build` needs no Node toolchain; `make web` (or the Docker build) regenerates
+it from the Vue source with `npm run build`.
+
+### Run it against the demo fleet
+
+```
+docker compose up -d                                        # seeded Postgres (250 tenants)
+export PGFLEET_DSN='postgres://pgfleet:pgfleet@localhost:5432/fleet'
+pgfleet migrate up                                          # bring the fleet to latest
+psql "$PGFLEET_DSN" -f demo/introduce_drift.sql             # break 3 tenants so drift shows red
+pgfleet web                                                 # open http://localhost:8080
+```
+
+### Deploy with Docker
+
+The [Dockerfile](Dockerfile) is a multi-stage build: a Node stage compiles the
+Vue app, a Go stage builds the static binary with that UI embedded, and the final
+image is just the binary on `gcr.io/distroless/static` (tiny, nonroot, no shell).
+The DSN is passed at runtime via `PGFLEET_DSN` and never baked into the image.
+
+```
+docker build -t pgfleet .
+docker run --rm -p 8080:8080 -e PGFLEET_DSN='postgres://user:pass@host:5432/db' pgfleet
+```
+
+Or bring the dashboard up alongside the seeded Postgres with Compose (the
+`dashboard` profile keeps it out of the plain demo flow):
+
+```
+docker compose --profile dashboard up -d --build
+```
+
+To deploy on AWS, run `docker compose --profile dashboard up -d` on a single
+small EC2 instance with the app port open in its security group; that is all a
+portfolio demo needs. See [docs/architecture.md](docs/architecture.md) for the
+dashboard's place in the design.
+
 ## Development
 
 ```
@@ -162,6 +239,11 @@ go test ./...            # unit tests (no database required)
 go vet ./...
 gofmt -l .
 ```
+
+The dashboard's Go handlers are covered by `go test ./internal/web/...` (they run
+against a fake fleet, no database needed). To iterate on the frontend with hot
+reload, run `pgfleet web` in one terminal and `npm run dev` in `web/` in another;
+Vite proxies `/api` to `:8080`. See [web/README.md](web/README.md).
 
 Integration tests exercise the real catalog, migration, and repair paths against
 a live PostgreSQL started via testcontainers. They are gated behind the

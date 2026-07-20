@@ -1,0 +1,293 @@
+/* Dark theme tuned to match the pgfleet portfolio aesthetic. All color choices
+   live here as CSS custom properties so components stay declarative. */
+:root {
+  --bg: #0d1117;
+  --bg-elevated: #161b22;
+  --bg-hover: #1c2330;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+
+  --ok: #3fb950;
+  --ok-bg: rgba(63, 185, 80, 0.15);
+  --warn: #d29922;
+  --warn-bg: rgba(210, 153, 34, 0.15);
+  --bad: #f85149;
+  --bad-bg: rgba(248, 81, 73, 0.15);
+
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+.app-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.app-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.app-header h1 {
+  font-size: 20px;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.app-header .brand-mark {
+  color: var(--accent);
+  font-family: var(--mono);
+}
+.app-header .subtitle {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 20px 0;
+}
+
+button,
+.btn {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+button:hover,
+.btn:hover {
+  background: var(--bg-hover);
+  text-decoration: none;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+input[type='search'],
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 12px;
+}
+input[type='search'] {
+  min-width: 240px;
+}
+input[type='search']:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Summary cards */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.card .value {
+  font-size: 30px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.card .label {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+.card.good .value {
+  color: var(--ok);
+}
+.card.warn .value {
+  color: var(--warn);
+}
+.card.bad .value {
+  color: var(--bad);
+}
+
+/* Table */
+.panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  text-align: left;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+tbody tr {
+  cursor: pointer;
+}
+tbody tr:hover {
+  background: var(--bg-hover);
+}
+tbody tr:last-child td {
+  border-bottom: none;
+}
+td.schema {
+  font-family: var(--mono);
+}
+td.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge.ok {
+  color: var(--ok);
+  background: var(--ok-bg);
+}
+.badge.warn {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+.badge.bad {
+  color: var(--bad);
+  background: var(--bad-bg);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+.empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.error {
+  border: 1px solid var(--bad);
+  background: var(--bad-bg);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+}
+
+.chart-wrap {
+  height: 260px;
+  padding: 8px 4px;
+}
+
+/* Tenant detail */
+.detail-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 20px;
+}
+.detail-header h2 {
+  font-family: var(--mono);
+  margin: 0;
+  font-size: 22px;
+}
+.diff-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.diff-group > header {
+  padding: 10px 16px;
+  background: var(--bg-hover);
+  font-weight: 600;
+}
+.diff-object {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+.diff-object .obj-name {
+  font-family: var(--mono);
+}
+.change-line {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.change-line .from {
+  color: var(--bad);
+}
+.change-line .to {
+  color: var(--ok);
+}
+.match-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px;
+  border: 1px solid var(--ok);
+  background: var(--ok-bg);
+  border-radius: var(--radius);
+}
+.section-title {
+  margin: 26px 0 12px;
+  font-size: 15px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

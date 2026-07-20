@@ -43,6 +43,7 @@ func newRootCmd() *cobra.Command {
 
 	root.AddCommand(newMigrateCmd(gf))
 	root.AddCommand(newDriftCmd(gf))
+	root.AddCommand(newWebCmd(gf))
 	return root
 }
 

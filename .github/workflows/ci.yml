@@ -43,6 +43,25 @@ jobs:
       - name: unit tests (race)
         run: go test -race ./...
 
+  # Build the Vue dashboard so a frontend break is caught in CI. The Go build
+  # embeds the committed internal/web/dist, so this job does not gate go build;
+  # it verifies the source that regenerates that bundle still compiles.
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: install
+        working-directory: web
+        run: npm ci
+      - name: build
+        working-directory: web
+        run: npm run build
+
   # Integration tests run the real catalog, migration, and repair paths against a
   # live PostgreSQL started via testcontainers, across the 15/16/17 matrix, and
   # enforce the 75% coverage gate on internal/ (the DB-facing code is only

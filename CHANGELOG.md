@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Dashboard
+
+- New optional `pgfleet web` subcommand: a read-only web dashboard visualizing
+  fleet migration status and schema drift, served from the single binary.
+- Read-only JSON API (`/api/summary`, `/api/tenants`, `/api/drift`,
+  `/api/drift/{tenant}`, `/api/versions`) reusing `migrate.Status`,
+  `drift.Verify`, and `drift.Diff` behind a `Provider` interface; a short TTL
+  cache (`--cache-ttl`) collapses a page load into one database pass.
+- Vue 3 + Vite single-page UI (fleet overview with summary cards, tenants-per-
+  version histogram, and a searchable/filterable table; per-tenant drift detail)
+  embedded via `embed.FS`. A pre-built bundle ships in the repo so `go build`
+  needs no Node toolchain.
+- Multi-stage `Dockerfile` (Node build → Go build → distroless) and a
+  `dashboard` Compose profile for a one-command deploy; `Makefile` targets for
+  building the UI and binary. Handlers are covered by database-free tests.
+
 ## v0.1.0
 
 First release. A single zero-cgo Go binary with two subsystems over a shared

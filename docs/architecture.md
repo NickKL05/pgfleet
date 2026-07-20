@@ -14,6 +14,8 @@ internal/
   pgutil/           pool construction, search_path, identifier quoting
   report/           human and JSON renderers over a shared run report
   drift/            catalog readers, fingerprint, diffgen, snapshot, repair
+  web/              read-only dashboard: HTTP API + embedded Vue SPA
+web/                Vue 3 + Vite frontend source (built into internal/web/dist)
 ```
 
 ## A migrate up run, end to end
@@ -126,3 +128,33 @@ The end-to-end property holds (spec test T3): applying a generated repair to a
 drifted tenant converges it to zero drift, verified against live PostgreSQL.
 
 See sections 5 and 9 of [the specification](../pgfleet-spec.md).
+
+## The dashboard (`internal/web`)
+
+`pgfleet web` serves a read-only observability layer over the two subsystems. It
+adds no new database logic: the HTTP handlers depend on a `Provider` interface
+whose production implementation (`Fleet`) is a thin wrapper over the same
+functions the CLI calls — `migrate.Status`, `drift.Verify`, and `drift.Diff`.
+Because the reports (`report.RunReport`, `report.DriftReport`) are already
+JSON-tagged, most handlers are a wrap-and-encode.
+
+- **Startup** mirrors a CLI invocation: `loadApp` → `connect` → `tenants`, plus
+  `migrate.Load`, run once in the `web` command; the resolved pool, config,
+  migration set, and tenant list are handed to `web.NewFleet`.
+- **Endpoints** are all `GET` and read-only: `/api/summary`, `/api/tenants`
+  (migration status joined with drift per tenant), `/api/drift`,
+  `/api/drift/{tenant}`, and `/api/versions`. A short TTL cache (`--cache-ttl`)
+  memoizes the two fleet-wide queries so one page load hits the database once,
+  not once per component; `?refresh=1` bypasses it.
+- **The UI** is a Vue 3 + Vite single-page app (`web/`) built to static assets in
+  `internal/web/dist` and served from an `embed.FS` with an index.html fallback
+  for client-side routes. The whole dashboard therefore ships inside the single
+  binary. The repository carries the pre-built bundle so `go build` needs no Node
+  toolchain; `make web` or the Docker node stage regenerates it. The SPA is built
+  with an absolute asset base (`base: '/'` in `web/vite.config.js`) so deep links
+  like `/tenant/x` resolve `/assets/*` correctly on refresh or direct navigation.
+
+Splitting the handlers behind the `Provider` interface keeps them testable
+without a database: `go test ./internal/web/...` exercises every endpoint against
+a fake fleet. The dashboard is strictly additive and read-only — it has no write
+paths, no auth, and does not change any CLI behavior.

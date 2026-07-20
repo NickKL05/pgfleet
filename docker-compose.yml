@@ -16,3 +16,21 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+
+  # The dashboard is gated behind the "dashboard" profile so the demo flow
+  # (`docker compose up -d`) keeps starting only Postgres. Bring the UI up with:
+  #   docker compose --profile dashboard up -d --build
+  # then open http://localhost:8080. The DSN points at the postgres service on
+  # the compose network; migrate the fleet first (see README) for a populated UI.
+  dashboard:
+    profiles: ["dashboard"]
+    build:
+      context: .
+    environment:
+      PGFLEET_DSN: postgres://pgfleet:pgfleet@postgres:5432/fleet
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
