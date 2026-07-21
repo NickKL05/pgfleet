@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api } from '../api.js'
 import StatusBadge from '../components/StatusBadge.vue'
+import ErrorState from '../components/ErrorState.vue'
 
 const props = defineProps({
   schema: { type: String, required: true },
@@ -11,11 +12,11 @@ const props = defineProps({
 const report = ref(null) // drift diff report for this tenant
 const row = ref(null) // migration/drift summary row from the fleet list
 const loading = ref(true)
-const error = ref('')
+const error = ref(null)
 
 async function load(refresh = false) {
   loading.value = true
-  error.value = ''
+  error.value = null
   try {
     const [diff, fleet] = await Promise.all([
       api.tenantDrift(props.schema, { refresh }),
@@ -24,7 +25,7 @@ async function load(refresh = false) {
     report.value = diff.tenants[0] || { schema: props.schema, drifted: false, differences: [] }
     row.value = fleet.tenants.find((t) => t.schema === props.schema) || null
   } catch (e) {
-    error.value = e.message
+    error.value = e
   } finally {
     loading.value = false
   }
@@ -60,10 +61,10 @@ function classBadge(cls) {
   <div>
     <div class="toolbar">
       <RouterLink to="/" class="btn">&larr; Fleet</RouterLink>
-      <button :disabled="loading" @click="load(true)">Refresh</button>
+      <button v-if="report" :disabled="loading" @click="load(true)">Refresh</button>
     </div>
 
-    <div v-if="error" class="error">Failed to load tenant: {{ error }}</div>
+    <ErrorState v-if="error" :error="error" :retrying="loading" @retry="load(true)" />
 
     <template v-if="report">
       <div class="detail-header">

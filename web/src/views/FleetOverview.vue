@@ -4,16 +4,17 @@ import { api } from '../api.js'
 import SummaryCards from '../components/SummaryCards.vue'
 import FleetTable from '../components/FleetTable.vue'
 import VersionChart from '../components/VersionChart.vue'
+import ErrorState from '../components/ErrorState.vue'
 
 const summary = ref(null)
 const tenants = ref([])
 const versions = ref(null)
 const loading = ref(true)
-const error = ref('')
+const error = ref(null)
 
 async function load(refresh = false) {
   loading.value = true
-  error.value = ''
+  error.value = null
   try {
     const opts = { refresh }
     // One page load fans out to the three fleet endpoints; the server's short
@@ -27,7 +28,7 @@ async function load(refresh = false) {
     tenants.value = t.tenants
     versions.value = v
   } catch (e) {
-    error.value = e.message
+    error.value = e
   } finally {
     loading.value = false
   }
@@ -38,14 +39,16 @@ onMounted(() => load())
 
 <template>
   <div>
-    <div class="toolbar">
+    <div v-if="summary" class="toolbar">
       <button :disabled="loading" @click="load(true)">
         {{ loading ? 'Refreshing&hellip;' : 'Refresh' }}
       </button>
-      <span v-if="summary" class="muted">reference: {{ summary.reference }}</span>
+      <span class="muted">reference: {{ summary.reference }}</span>
     </div>
 
-    <div v-if="error" class="error">Failed to load fleet: {{ error }}</div>
+    <!-- Shown on its own when nothing has loaded yet, or above the last good
+         data when a refresh fails, so a failed refresh never blanks the page. -->
+    <ErrorState v-if="error" :error="error" :retrying="loading" @retry="load(true)" />
 
     <template v-if="summary">
       <SummaryCards :summary="summary" />
