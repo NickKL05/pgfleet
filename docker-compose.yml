@@ -32,9 +32,40 @@ services:
       context: .
     environment:
       PGFLEET_DSN: postgres://pgfleet:pgfleet@postgres:5432/fleet
+    # Bound to loopback. In front of the internet the caddy service below is the
+    # only entry point; this publish exists so the host can curl the app
+    # directly when debugging.
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+
+  # TLS termination. Kept in its own profile so the plain `dashboard` profile
+  # still works locally, where there is no public hostname to certify:
+  #   docker compose --profile dashboard --profile tls up -d
+  # Requires PGFLEET_HOST (and optionally TLS_EMAIL) in a .env file beside this
+  # one, plus ports 80 and 443 reachable for the ACME challenge.
+  caddy:
+    profiles: ["tls"]
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PGFLEET_HOST: ${PGFLEET_HOST:?set PGFLEET_HOST in .env}
+      TLS_EMAIL: ${TLS_EMAIL:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Issued certificates live here. Without a persistent volume every
+      # restart re-requests them and walks into Let's Encrypt rate limits.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - dashboard
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

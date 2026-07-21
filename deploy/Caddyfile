@@ -1,0 +1,31 @@
+# Caddy terminates TLS in front of the dashboard.
+#
+# Caddy obtains and renews a Let's Encrypt certificate on its own, so there is
+# no certbot cron job and no renewal to forget. It also redirects HTTP to HTTPS
+# automatically, which is why port 80 must stay open: the ACME HTTP-01 challenge
+# is served there.
+#
+# PGFLEET_HOST and TLS_EMAIL come from /opt/pgfleet/.env on the instance. The
+# hostname is not committed, so the same config works for any deployment.
+
+{
+	email {$TLS_EMAIL}
+}
+
+{$PGFLEET_HOST} {
+	encode gzip
+
+	# The dashboard container is reachable over the compose network. It no
+	# longer publishes a port to the public interface, so this proxy is the
+	# only way in.
+	reverse_proxy dashboard:8080
+
+	header {
+		# The dashboard is read-only and same-origin; these cost nothing and
+		# remove the obvious footguns.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+	}
+}
