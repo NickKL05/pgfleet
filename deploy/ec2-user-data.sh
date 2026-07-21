@@ -11,7 +11,7 @@
 set -euxo pipefail
 
 REPO_URL="https://github.com/NickKL05/pgfleet.git"
-BRANCH="feat/web-dashboard"   # switch to main once the dashboard is merged
+BRANCH="main"
 APP_DIR="/opt/pgfleet"
 COMPOSE_VERSION="v2.32.4"
 

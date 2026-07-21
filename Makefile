@@ -18,7 +18,7 @@ web:
 	cd web && (test -f package-lock.json && npm ci || npm install)
 	cd web && npm run build
 
-# all rebuilds the UI and then the binary — the full "single binary with fresh
+# all rebuilds the UI and then the binary, the full "single binary with fresh
 # UI" produced without Docker.
 all: web build
 

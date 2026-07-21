@@ -114,8 +114,8 @@ func (s *Server) handleVersions(w http.ResponseWriter, r *http.Request) {
 
 // versionHistogram counts tenants at each version from 0 to the latest, so the
 // chart shows empty buckets (a version nobody is on yet) rather than skipping
-// them. Any tenant reporting a version above latest — possible mid-rollout when
-// a migration was just added — gets its own trailing bucket.
+// them. A tenant reporting a version above latest, which is possible
+// mid-rollout when a migration was just added, gets its own trailing bucket.
 func versionHistogram(mig *report.RunReport, latest int) []VersionBucket {
 	counts := map[int]int{}
 	top := latest

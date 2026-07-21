@@ -16,6 +16,16 @@ schema-per-tenant databases (50 to 5000+ schemas in a single database).
 
 ![pgfleet drift demo](demo/demo.svg)
 
+...and an optional [read-only web dashboard](#dashboard-optional) over the same
+fleet, served from that same single binary with the UI embedded in it.
+
+**[Try the live demo](http://18.188.36.199:8080/)**: a small EC2 instance
+running the 250-tenant demo fleet, mid-rollout, with three tenants deliberately
+drifted. It is a throwaway demo box, so it may be torn down; the screenshots
+below show the same thing.
+
+![pgfleet dashboard: fleet overview](docs/images/dashboard-overview.png)
+
 ## TL;DR
 
 **What it is.** A single Go binary that runs versioned SQL migrations across
@@ -84,6 +94,12 @@ Applying a repair runs in a guarded transaction behind a confirmation prompt
 
 See [docs/architecture.md](docs/architecture.md) for the design and
 [the specification](pgfleet-spec.md) for the full requirements.
+
+Written up in more depth in [docs/](docs/):
+[design decisions](docs/design-decisions.md) (the trade-offs and what they
+cost), an [engineering log](docs/engineering-log.md) (the bugs worth reading
+about, and how they were found), and [interview notes](docs/interview-notes.md)
+(what was cut, and what is deliberately not measured).
 
 ## Install
 
@@ -163,6 +179,8 @@ and schema drift across the fleet. The CLI stays the primary interface; the
 dashboard is an observability layer over the same functions (`migrate status`,
 `drift verify`/`diff`) and never mutates a database.
 
+Live demo: **<http://18.188.36.199:8080/>** (demo instance; may be torn down).
+
 ```
 export PGFLEET_DSN='postgres://pgfleet:pgfleet@localhost:5432/fleet'
 pgfleet web --addr :8080          # then open http://localhost:8080
@@ -174,6 +192,8 @@ pgfleet web --addr :8080          # then open http://localhost:8080
   detail.
 - **Tenant detail** (`/tenant/:schema`): the object- and field-level diff against
   the reference, grouped by object, or a clear "matches reference" state.
+
+![pgfleet dashboard: tenant drift detail](docs/images/dashboard-tenant-detail.png)
 
 The API is plain JSON and read-only, so it is also usable directly:
 
@@ -193,7 +213,7 @@ Refresh button) to force a fresh read.
 
 The UI is a Vue 3 + Vite single-page app (source in [web/](web/)) compiled to
 static files and embedded into the binary via `embed.FS`, so the whole dashboard
-ships as part of the one static `pgfleet` binary — no separate frontend to
+ships as part of the one static `pgfleet` binary, with no separate frontend to
 deploy. The repository carries the pre-built `internal/web/dist` bundle, so
 `go build` needs no Node toolchain; `make web` (or the Docker build) regenerates
 it from the Vue source with `npm run build`.
@@ -230,7 +250,7 @@ docker compose --profile dashboard up -d --build
 ### Deploy on AWS
 
 A single small EC2 instance running the dashboard container plus a seeded
-Postgres container is all this needs — no ECS, no load balancer, no RDS. The
+Postgres container is all this needs. No ECS, no load balancer, no RDS. The
 instance configures itself from
 [`deploy/ec2-user-data.sh`](deploy/ec2-user-data.sh): it installs Docker, builds
 the image, seeds and migrates 250 tenants, drifts three of them, and serves the

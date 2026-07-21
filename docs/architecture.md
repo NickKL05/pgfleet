@@ -134,7 +134,7 @@ See sections 5 and 9 of [the specification](../pgfleet-spec.md).
 `pgfleet web` serves a read-only observability layer over the two subsystems. It
 adds no new database logic: the HTTP handlers depend on a `Provider` interface
 whose production implementation (`Fleet`) is a thin wrapper over the same
-functions the CLI calls — `migrate.Status`, `drift.Verify`, and `drift.Diff`.
+functions the CLI calls: `migrate.Status`, `drift.Verify`, and `drift.Diff`.
 Because the reports (`report.RunReport`, `report.DriftReport`) are already
 JSON-tagged, most handlers are a wrap-and-encode.
 
@@ -156,5 +156,5 @@ JSON-tagged, most handlers are a wrap-and-encode.
 
 Splitting the handlers behind the `Provider` interface keeps them testable
 without a database: `go test ./internal/web/...` exercises every endpoint against
-a fake fleet. The dashboard is strictly additive and read-only — it has no write
+a fake fleet. The dashboard is strictly additive and read-only: it has no write
 paths, no auth, and does not change any CLI behavior.

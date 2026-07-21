@@ -26,9 +26,9 @@ Node toolchain present; `npm run build` overwrites it with an optimized bundle.
 
 ## Layout
 
-- `src/api.js` — thin fetch client for the `/api/*` endpoints.
-- `src/router.js` — two routes: `/` (fleet overview) and `/tenant/:schema`.
-- `src/views/` — the two pages.
-- `src/components/` — summary cards, the searchable fleet table, the version
+- `src/api.js`: thin fetch client for the `/api/*` endpoints.
+- `src/router.js`: two routes: `/` (fleet overview) and `/tenant/:schema`.
+- `src/views/`: the two pages.
+- `src/components/`: summary cards, the searchable fleet table, the version
   histogram (Chart.js via vue-chartjs), and the status badge.
-- `src/style.css` — the dark theme (all colors are CSS custom properties).
+- `src/style.css`: the dark theme (all colors are CSS custom properties).

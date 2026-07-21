@@ -101,7 +101,7 @@ function classBadge(cls) {
 
       <div v-else class="match-state">
         <StatusBadge kind="ok" label="&#10003;" />
-        <span>This tenant matches the reference &mdash; no schema drift detected.</span>
+        <span>This tenant matches the reference. No schema drift detected.</span>
       </div>
     </template>
 

@@ -8,8 +8,8 @@ import (
 )
 
 // spaHandler serves the embedded single-page app. Real files (index.html,
-// hashed assets) are served directly; any other path — a client-side route such
-// as /tenant/tenant_042 that the browser requests on a deep link or refresh —
+// hashed assets) are served directly. Any other path, such as the client-side
+// route /tenant/tenant_042 that the browser requests on a deep link or refresh,
 // falls back to index.html so Vue Router can take over. Unknown /api paths
 // never reach here because the API routes are registered more specifically.
 func spaHandler(root fs.FS) http.Handler {

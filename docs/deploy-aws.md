@@ -2,7 +2,7 @@
 
 A single small EC2 instance running `docker compose`: the dashboard container
 plus a Postgres container seeded with the 250-tenant demo fleet. No ECS, no
-load balancer, no RDS — for a portfolio demo those buy nothing and cost time
+load balancer, no RDS: for a portfolio demo those buy nothing and cost time
 and money.
 
 The whole instance configures itself from a user-data script, so this is mostly
@@ -22,12 +22,12 @@ In the EC2 console, **Launch instance**:
 | Name | `pgfleet-dashboard` |
 | AMI | **Amazon Linux 2023** (the default) |
 | Instance type | `t3.micro` (free-tier eligible) |
-| Key pair | Create or pick one — you want SSH for troubleshooting |
+| Key pair | Create or pick one; you want SSH for troubleshooting |
 | Storage | 8 GiB gp3 (the default) is enough |
 
 The user-data script adds 2 GB of swap, because building the image (npm install
 plus a Go compile) will otherwise run out of memory on a 1 GB `t3.micro`. If you
-would rather not rely on swap, use `t3.small` — it is not free-tier, roughly
+would rather not rely on swap, use `t3.small`, which is not free-tier, roughly
 $15/month on-demand.
 
 ### Security group
@@ -85,7 +85,7 @@ sudo tail -100 /var/log/cloud-init-output.log      # the first-boot script
 ```
 
 If the page loads but shows "Can't reach the pgfleet server", the UI is being
-served but the API is failing — check the dashboard logs; it is usually the DSN
+served but the API is failing. Check the dashboard logs; it is usually the DSN
 or the database still starting.
 
 To rebuild after pushing a change:
@@ -98,7 +98,7 @@ docker compose --profile dashboard up -d --build
 ## Cost and teardown
 
 A `t3.micro` is free-tier eligible for the first 12 months of a new account;
-after that it is a few dollars a month. Nothing else here costs money — no load
+after that it is a few dollars a month. Nothing else here costs money: no load
 balancer, no RDS, no elastic IP (as long as it stays attached to a running
 instance).
 
@@ -115,7 +115,7 @@ This is a demo deployment, and it is worth being explicit about what that means:
   That is fine here because everything it shows is generated demo data, but do
   not point this deployment at a real database.
 - **It is strictly read-only.** The API only wraps `migrate status`,
-  `drift verify`, and `drift diff` — there are no write paths, so a visitor
+  `drift verify`, and `drift diff`, so there are no write paths and, so a visitor
   cannot change anything.
 - **The DSN is passed at runtime** via `PGFLEET_DSN` in the compose file and is
   never baked into the image. The demo credentials are throwaway; if you ever
