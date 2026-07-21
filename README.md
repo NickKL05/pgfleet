@@ -98,8 +98,8 @@ See [docs/architecture.md](docs/architecture.md) for the design and
 Written up in more depth in [docs/](docs/):
 [design decisions](docs/design-decisions.md) (the trade-offs and what they
 cost), an [engineering log](docs/engineering-log.md) (the bugs worth reading
-about, and how they were found), and [interview notes](docs/interview-notes.md)
-(what was cut, and what is deliberately not measured).
+about, and how they were found), and a [design FAQ](docs/design-faq.md)
+(known limitations, and what is deliberately not measured).
 
 ## Install
 

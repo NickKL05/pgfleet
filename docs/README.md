@@ -10,9 +10,9 @@
   build, with how each was found: the blank-page deep-link bug, the error-state
   rewrite, why a tenant behind on migrations also reports as drifted, and how
   the Docker build was validated without Docker.
-- **[interview-notes.md](interview-notes.md)**: the questions this project
-  invites, answered from the code, including what was cut and what is not
-  measured.
+- **[design-faq.md](design-faq.md)**: common questions about how it works and
+  why, answered from the code, including the known limitations and what is
+  deliberately not measured.
 - **[deploy-aws.md](deploy-aws.md)**: deploying the dashboard on EC2 with
   Docker: console walkthrough, security groups, troubleshooting, teardown.
 
