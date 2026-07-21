@@ -91,6 +91,44 @@ band, which is exactly the failure mode the tool exists to catch. The three
 deliberately drifted demo tenants are that case; the 20 rolled-back ones are
 the ordinary case.
 
+## The cache-bypass parameter was an amplification vector
+
+**Observation.** Reviewing the deployment before publishing the URL, the
+`?refresh=1` parameter stood out. It exists so the UI's Refresh button can force
+a fresh read, and it does that by skipping the TTL cache entirely. The endpoint
+is unauthenticated, so any client could skip the cache too, and every skipped
+request is a full catalog scan across 250 tenant schemas. A cheap HTTP request
+turning into expensive database work is the shape of an amplification attack,
+and on a burstable `t3.micro` the practical damage is exhausted CPU credits and
+an instance that stays throttled.
+
+**What already limited it.** Two accidents of the design, worth naming because
+they explain why this was a hardening task and not an incident: `fleetCache`
+holds its mutex for the duration of the query, so concurrent refreshes serialize
+and the database sees one scan at a time rather than fifty; and the pool is
+capped at `concurrency + 2` connections with a 60s `statement_timeout`. The
+failure mode was therefore queued requests and growing latency, not a database
+meltdown.
+
+**Fix.** A floor on how often a forced refresh may reach the database
+(`--min-refresh`, default 1s). Within the floor, `?refresh=1` is served from
+cache like any other request. The Refresh button stays responsive, because a
+human clicking it waits longer than a second anyway, while a loop gets cached
+responses.
+
+Measured on the deployed instance: the first forced refresh took 109ms, the next
+four took under 1ms each, and one sent after the floor elapsed took 130ms.
+
+Added alongside it: a per-client token bucket on `/api/*` (static assets stay
+unthrottled, so exhausting the API budget cannot stop the page loading), and
+read/write/idle timeouts on the server. `WriteTimeout` spans handler execution,
+so it is deliberately set above the database `statement_timeout` rather than
+below it, or a slow but legitimate fleet query would be truncated.
+
+**Lesson.** A cache is a performance feature until the cache-bypass is reachable
+by anyone, at which point it is also a rate-limiting feature, and the bypass
+needs its own limit.
+
 ## npm 11 silently skipped esbuild's install script
 
 **Symptom.** `npm install` reported success and exited `0`, but printed a

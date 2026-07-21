@@ -82,6 +82,13 @@ A TTL cache collapses a burst of near-simultaneous requests into one database
 pass and then gets out of the way. `?refresh=1` (the UI's Refresh button)
 bypasses it, so the user can always force a fresh read.
 
+That bypass is itself floored (`--min-refresh`, default 1s), because the
+endpoint is unauthenticated: without a floor, anyone could skip the cache and
+turn each request into a full catalog scan of every tenant schema. The `/api/*`
+routes are also behind a per-client token bucket. Neither guard applies to the
+embedded static assets, which are served from memory, so a throttled client can
+still load the page and see the error state rather than a dead connection.
+
 ## Committed build artifact (`internal/web/dist`)
 
 The compiled SPA is checked into the repository.

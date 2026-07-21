@@ -16,7 +16,8 @@ import (
 // an optional convenience; the CLI stays the primary interface (R: read-only).
 func newWebCmd(gf *globalFlags) *cobra.Command {
 	var addr string
-	var cacheTTL time.Duration
+	var cacheTTL, minRefresh time.Duration
+	var rateLimit, rateBurst float64
 	cmd := &cobra.Command{
 		Use:   "web",
 		Short: "Serve the read-only fleet dashboard (HTTP API + embedded UI)",
@@ -49,9 +50,12 @@ func newWebCmd(gf *globalFlags) *cobra.Command {
 
 			fleet := web.NewFleet(a.pool, a.cfg, set, tenants)
 			srv, err := web.NewServer(fleet, web.Options{
-				Addr:     addr,
-				CacheTTL: cacheTTL,
-				Logger:   a.logger,
+				Addr:               addr,
+				CacheTTL:           cacheTTL,
+				MinRefreshInterval: minRefresh,
+				RateLimit:          rateLimit,
+				RateBurst:          rateBurst,
+				Logger:             a.logger,
 			})
 			if err != nil {
 				return failureErr(err)
@@ -64,5 +68,14 @@ func newWebCmd(gf *globalFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&addr, "addr", ":8080", "address to listen on")
 	cmd.Flags().DurationVar(&cacheTTL, "cache-ttl", 3*time.Second, "cache window for fleet queries (0 disables)")
+	// The dashboard has no authentication, so the endpoints that reach the
+	// database are throttled by default. Both guards can be turned off with a
+	// negative value when serving on a trusted network.
+	cmd.Flags().DurationVar(&minRefresh, "min-refresh", time.Second,
+		"minimum interval between ?refresh=1 fleet queries (negative disables)")
+	cmd.Flags().Float64Var(&rateLimit, "rate-limit", 10,
+		"per-client requests per second for /api/* (negative disables)")
+	cmd.Flags().Float64Var(&rateBurst, "rate-burst", 30,
+		"per-client burst allowance for /api/*")
 	return cmd
 }

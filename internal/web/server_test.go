@@ -231,7 +231,9 @@ func TestProviderErrorReturns502(t *testing.T) {
 
 func TestCacheElidesRepeatQueries(t *testing.T) {
 	p := sampleProvider()
-	s, err := NewServer(p, Options{CacheTTL: time.Minute})
+	// The refresh floor is disabled here so this test covers the cache alone;
+	// the floor has its own test below.
+	s, err := NewServer(p, Options{CacheTTL: time.Minute, MinRefreshInterval: -1})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}
@@ -251,6 +253,113 @@ func TestCacheElidesRepeatQueries(t *testing.T) {
 	doGet(t, s, "/api/summary?refresh=1")
 	if p.migCalls != 2 || p.driftCalls != 2 {
 		t.Errorf("refresh did not bypass cache: mig=%d drift=%d", p.migCalls, p.driftCalls)
+	}
+}
+
+func TestRefreshFloorBlocksCacheBypass(t *testing.T) {
+	p := sampleProvider()
+	// A long floor stands in for "the previous query was very recent".
+	s, err := NewServer(p, Options{CacheTTL: time.Minute, MinRefreshInterval: time.Minute})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	// Prime the cache, then hammer the endpoint the way an unauthenticated
+	// caller would. Without the floor each of these is a full fleet scan.
+	doGet(t, s, "/api/summary")
+	for i := 0; i < 25; i++ {
+		if rec := doGet(t, s, "/api/summary?refresh=1"); rec.Code != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want 200", i, rec.Code)
+		}
+	}
+	if p.migCalls != 1 || p.driftCalls != 1 {
+		t.Errorf("refresh floor did not hold: mig=%d drift=%d, want 1 and 1",
+			p.migCalls, p.driftCalls)
+	}
+}
+
+func TestRefreshHonoredOnceFloorElapses(t *testing.T) {
+	p := sampleProvider()
+	// A floor short enough to step over without a slow test.
+	s, err := NewServer(p, Options{CacheTTL: time.Minute, MinRefreshInterval: 10 * time.Millisecond})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	doGet(t, s, "/api/summary")
+	time.Sleep(20 * time.Millisecond)
+	doGet(t, s, "/api/summary?refresh=1")
+	if p.migCalls != 2 {
+		t.Errorf("MigrationStatus called %d times, want 2 (refresh honored after the floor)", p.migCalls)
+	}
+}
+
+func TestRateLimitRejectsFlood(t *testing.T) {
+	p := sampleProvider()
+	// Burst of 3 with no meaningful refill during the test.
+	s, err := NewServer(p, Options{CacheTTL: time.Minute, RateLimit: 0.001, RateBurst: 3})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	var ok, limited int
+	for i := 0; i < 10; i++ {
+		switch code := doGet(t, s, "/api/summary").Code; code {
+		case http.StatusOK:
+			ok++
+		case http.StatusTooManyRequests:
+			limited++
+		default:
+			t.Fatalf("unexpected status %d", code)
+		}
+	}
+	if ok != 3 {
+		t.Errorf("allowed %d requests, want 3 (the burst)", ok)
+	}
+	if limited != 7 {
+		t.Errorf("rejected %d requests, want 7", limited)
+	}
+}
+
+func TestRateLimitIsPerClient(t *testing.T) {
+	p := sampleProvider()
+	s, err := NewServer(p, Options{CacheTTL: time.Minute, RateLimit: 0.001, RateBurst: 1})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	get := func(addr string) int {
+		req := httptest.NewRequest(http.MethodGet, "/api/summary", nil)
+		req.RemoteAddr = addr
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	if code := get("10.0.0.1:1111"); code != http.StatusOK {
+		t.Fatalf("first client: status = %d, want 200", code)
+	}
+	if code := get("10.0.0.1:2222"); code != http.StatusTooManyRequests {
+		t.Errorf("same client, second request: status = %d, want 429 (port must not split the bucket)", code)
+	}
+	// A different address has its own bucket and is unaffected.
+	if code := get("10.0.0.2:1111"); code != http.StatusOK {
+		t.Errorf("second client: status = %d, want 200", code)
+	}
+}
+
+func TestStaticAssetsAreNotRateLimited(t *testing.T) {
+	p := sampleProvider()
+	s, err := NewServer(p, Options{RateLimit: 0.001, RateBurst: 1})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	// The SPA shell is served from memory, so exhausting the API budget must
+	// not stop the page itself from loading.
+	doGet(t, s, "/api/summary")
+	for i := 0; i < 5; i++ {
+		if rec := doGet(t, s, "/"); rec.Code != http.StatusOK {
+			t.Fatalf("static request %d: status = %d, want 200", i, rec.Code)
+		}
 	}
 }
 
