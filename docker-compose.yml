@@ -5,8 +5,12 @@ services:
       POSTGRES_USER: pgfleet
       POSTGRES_PASSWORD: pgfleet
       POSTGRES_DB: fleet
+    # Bound to loopback: the CLI and demo scripts reach Postgres on
+    # localhost:5432 as before, but on a public host (the EC2 demo) the port is
+    # never exposed to the internet even if a security group is misconfigured.
+    # The dashboard container talks to it over the compose network, not this.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     # The demo seed runs once on first initialization, creating the control
     # table, 250 tenant schemas, and the canonical tenant_template.
     volumes:

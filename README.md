@@ -227,10 +227,21 @@ Or bring the dashboard up alongside the seeded Postgres with Compose (the
 docker compose --profile dashboard up -d --build
 ```
 
-To deploy on AWS, run `docker compose --profile dashboard up -d` on a single
-small EC2 instance with the app port open in its security group; that is all a
-portfolio demo needs. See [docs/architecture.md](docs/architecture.md) for the
-dashboard's place in the design.
+### Deploy on AWS
+
+A single small EC2 instance running the dashboard container plus a seeded
+Postgres container is all this needs — no ECS, no load balancer, no RDS. The
+instance configures itself from
+[`deploy/ec2-user-data.sh`](deploy/ec2-user-data.sh): it installs Docker, builds
+the image, seeds and migrates 250 tenants, drifts three of them, and serves the
+dashboard on port 8080.
+
+See **[docs/deploy-aws.md](docs/deploy-aws.md)** for the step-by-step console
+walkthrough, security-group rules, troubleshooting, and teardown. Note the
+dashboard has no authentication and is intended for demo data only.
+
+See [docs/architecture.md](docs/architecture.md) for the dashboard's place in
+the design.
 
 ## Development
 
