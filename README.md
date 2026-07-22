@@ -19,7 +19,7 @@ schema-per-tenant databases (50 to 5000+ schemas in a single database).
 ...and an optional [read-only web dashboard](#dashboard-optional) over the same
 fleet, served from that same single binary with the UI embedded in it.
 
-**[Try the live demo](http://18.188.36.199:8080/)**: a small EC2 instance
+**[Try the live demo](https://pgfleet.duckdns.org/)**: a small EC2 instance
 running the 250-tenant demo fleet, mid-rollout, with three tenants deliberately
 drifted. It is a throwaway demo box, so it may be torn down; the screenshots
 below show the same thing.
@@ -179,7 +179,7 @@ and schema drift across the fleet. The CLI stays the primary interface; the
 dashboard is an observability layer over the same functions (`migrate status`,
 `drift verify`/`diff`) and never mutates a database.
 
-Live demo: **<http://18.188.36.199:8080/>** (demo instance; may be torn down).
+Live demo: **<https://pgfleet.duckdns.org/>** (demo instance; may be torn down).
 
 ```
 export PGFLEET_DSN='postgres://pgfleet:pgfleet@localhost:5432/fleet'

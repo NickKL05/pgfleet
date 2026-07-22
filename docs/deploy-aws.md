@@ -188,14 +188,18 @@ This is a demo deployment, and it is worth being explicit about what that means:
   That is fine here because everything it shows is generated demo data, but do
   not point this deployment at a real database.
 - **It is strictly read-only.** The API only wraps `migrate status`,
-  `drift verify`, and `drift diff`, so there are no write paths and, so a visitor
+  `drift verify`, and `drift diff`, so there are no write paths and a visitor
   cannot change anything.
 - **The DSN is passed at runtime** via `PGFLEET_DSN` in the compose file and is
   never baked into the image. The demo credentials are throwaway; if you ever
   point this at something real, use a secret store rather than compose
   environment values.
 - **Keep 5432 closed** to the internet, and SSH restricted to your own IP.
-- Plain HTTP on port 8080 means traffic is unencrypted. For a demo showing
-  synthetic data that is an acceptable trade; putting it behind a domain with
-  TLS (Caddy or an ALB) is the obvious next step if you want it to look more
-  production-like.
+- **Traffic is encrypted once the TLS steps above are done.** Until then the
+  dashboard is plain HTTP on port 8080, which is an acceptable trade for
+  synthetic data but not for anything else. After the proxy is in place, close
+  the 8080 rule so the only way in is through it.
+- **The API endpoints are rate limited** per client, and the cache-bypass
+  parameter has its own floor, because an unauthenticated caller could otherwise
+  turn cheap requests into repeated scans of every tenant schema. Both are
+  tunable with `--rate-limit` and `--min-refresh`.
