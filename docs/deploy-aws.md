@@ -147,6 +147,71 @@ hostname in `.env` not matching the one in DNS. Let's Encrypt rate-limits
 repeated failures for the same name, so fix the cause before retrying rather
 than restarting in a loop.
 
+### Keeping the hostname alive
+
+DuckDNS expires a subdomain after 30 days with no update. The Elastic IP never
+changes, so nothing drifts, but the record still has to be touched or the
+hostname disappears and certificate renewal fails with it.
+[`deploy/duckdns-update.sh`](../deploy/duckdns-update.sh) does the ping; a
+systemd timer runs it daily, which leaves a wide margin against the 30 day
+deadline.
+
+Install the script and its schedule:
+
+```
+sudo install -m 755 /opt/pgfleet/deploy/duckdns-update.sh /usr/local/bin/duckdns-update.sh
+
+sudo tee /etc/systemd/system/duckdns-update.service >/dev/null <<'EOF'
+[Unit]
+Description=Refresh the DuckDNS record for the pgfleet dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/duckdns-update.sh
+EOF
+
+sudo tee /etc/systemd/system/duckdns-update.timer >/dev/null <<'EOF'
+[Unit]
+Description=Daily DuckDNS refresh
+
+[Timer]
+OnCalendar=daily
+# Catch up after the instance has been stopped over a scheduled run.
+Persistent=true
+RandomizedDelaySec=1h
+
+[Install]
+WantedBy=timers.target
+EOF
+```
+
+Then write the credentials file. Keep it mode 600: the token lets anyone
+repoint the subdomain.
+
+```
+sudo install -m 600 /dev/null /etc/pgfleet-duckdns.env
+sudo tee /etc/pgfleet-duckdns.env >/dev/null <<'EOF'
+DUCKDNS_DOMAIN=<your subdomain, without .duckdns.org>
+DUCKDNS_TOKEN=<your token from duckdns.org>
+EOF
+```
+
+Enable it and confirm the first run succeeds:
+
+```
+sudo systemctl daemon-reload
+sudo systemctl enable --now duckdns-update.timer
+sudo systemctl start duckdns-update.service
+systemctl status duckdns-update.service --no-pager
+systemctl list-timers duckdns-update.timer --no-pager
+```
+
+A successful run logs `duckdns: <subdomain> refreshed`. A failure logs the
+DuckDNS response without the token, which is almost always `KO` for a wrong
+token or subdomain.
+
 ## Troubleshooting
 
 ```
